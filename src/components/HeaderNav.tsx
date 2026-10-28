@@ -340,7 +340,7 @@ export const HeaderNav: React.FC<HeaderNavProps> = ({
             onClick={onDownloadPdf || onPrint}
             disabled={isGeneratingPdf}
             className="flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-emerald-500 to-teal-500 px-3.5 py-1.5 text-xs font-black text-slate-950 shadow-md shadow-emerald-500/25 hover:brightness-110 active:scale-95 transition disabled:opacity-50"
-            title="Download crisp professional PDF using jsPDF directly to your computer"
+            title="Download crisp professional PDF using jsPDF (Ctrl+D)"
           >
             {isGeneratingPdf ? (
               <Loader2 className="h-3.5 w-3.5 animate-spin text-slate-950" />
@@ -348,16 +348,22 @@ export const HeaderNav: React.FC<HeaderNavProps> = ({
               <FileDown className="h-3.5 w-3.5" />
             )}
             <span>{isGeneratingPdf ? 'Making PDF...' : 'Download PDF'}</span>
+            <kbd className="hidden lg:inline rounded bg-slate-950/20 px-1 py-0.2 text-[9px] font-mono text-slate-950 font-bold">
+              Ctrl+D
+            </kbd>
           </button>
 
           {/* 2. Print / System PDF */}
           <button
             onClick={onPrint}
             className="flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs font-bold text-white hover:bg-slate-800 transition active:scale-95 shadow-sm"
-            title="Open system print dialog"
+            title="Open system print dialog (Ctrl+P)"
           >
             <Printer className="h-3.5 w-3.5 text-amber-400" />
             <span>Print</span>
+            <kbd className="hidden lg:inline rounded bg-slate-800 px-1 py-0.2 text-[9px] font-mono text-slate-400">
+              Ctrl+P
+            </kbd>
           </button>
 
           {/* 3. WhatsApp Share */}
@@ -419,10 +425,13 @@ export const HeaderNav: React.FC<HeaderNavProps> = ({
           <button
             onClick={onNewBill}
             className="flex items-center gap-1.5 rounded-lg border border-emerald-500/60 bg-emerald-950/50 px-3 py-1 text-xs font-black text-emerald-300 hover:bg-emerald-600 hover:text-white shadow-sm transition"
-            title="Create a fresh blank bill (Previous bill stays safely saved in CRM history)"
+            title="Create a fresh blank bill (Ctrl+N)"
           >
             <PlusCircle className="h-3.5 w-3.5 text-emerald-400" />
             <span>+ New Bill</span>
+            <kbd className="hidden lg:inline rounded bg-emerald-950/80 px-1 py-0.2 text-[9px] font-mono border border-emerald-500/40 text-emerald-300">
+              Ctrl+N
+            </kbd>
           </button>
 
           {/* Document Type Selector Tabs */}
@@ -556,10 +565,13 @@ export const HeaderNav: React.FC<HeaderNavProps> = ({
             <button
               onClick={onOpenCrm}
               className="flex items-center gap-1 rounded-md border border-purple-500/30 bg-purple-950/20 px-2 py-0.5 text-[11px] font-bold text-purple-300 hover:bg-purple-900/40 transition"
-              title="Customer CRM & History"
+              title="Customer CRM & History (Ctrl+H)"
             >
               <Users className="h-3 w-3 text-purple-400" />
               <span>CRM</span>
+              <kbd className="hidden xl:inline rounded bg-purple-950/80 px-1 py-0.2 text-[9px] font-mono border border-purple-500/40 text-purple-300">
+                Ctrl+H
+              </kbd>
             </button>
             <button
               onClick={onOpenGstr1}

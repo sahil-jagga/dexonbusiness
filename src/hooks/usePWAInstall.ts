@@ -17,6 +17,20 @@ export function usePWAInstall() {
       (window.navigator as unknown as { standalone?: boolean }).standalone === true;
     setIsInstalled(isStandalone);
 
+    // Detect if already installed via Chromium getInstalledRelatedApps API
+    if ('getInstalledRelatedApps' in navigator) {
+      try {
+        (navigator as any)
+          .getInstalledRelatedApps()
+          .then((apps: any[]) => {
+            if (Array.isArray(apps) && apps.length > 0) {
+              setIsInstalled(true);
+            }
+          })
+          .catch(() => {});
+      } catch {}
+    }
+
     // Detect iOS devices (iPhone, iPad, iPod)
     const userAgent = window.navigator.userAgent.toLowerCase();
     const isIOSDevice = /iphone|ipad|ipod/.test(userAgent);

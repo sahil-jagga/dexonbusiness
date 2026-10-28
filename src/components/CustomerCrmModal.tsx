@@ -31,6 +31,7 @@ interface CustomerCrmModalProps {
   invoicesHistory: InvoiceHistoryRecord[];
   onLoadInvoiceRecord: (record: InvoiceHistoryRecord) => void;
   onDeleteHistoryRecord: (id: string) => void;
+  onImportInvoicesHistory?: (records: InvoiceHistoryRecord[]) => void;
   onDataRestored?: () => void;
 }
 
@@ -43,6 +44,7 @@ export const CustomerCrmModal: React.FC<CustomerCrmModalProps> = ({
   invoicesHistory,
   onLoadInvoiceRecord,
   onDeleteHistoryRecord,
+  onImportInvoicesHistory,
   onDataRestored,
 }) => {
   const [activeTab, setActiveTab] = useState<'crm' | 'history'>('crm');
@@ -54,6 +56,7 @@ export const CustomerCrmModal: React.FC<CustomerCrmModalProps> = ({
   const [historyDocType, setHistoryDocType] = useState<string>('ALL');
   const [backupNotice, setBackupNotice] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const csvHistoryFileInputRef = useRef<HTMLInputElement>(null);
 
   // Add new customer modal form
   const [showAddForm, setShowAddForm] = useState(false);
@@ -242,6 +245,189 @@ export const CustomerCrmModal: React.FC<CustomerCrmModalProps> = ({
     document.body.removeChild(link);
   };
 
+  // Sample CSV Template for Bulk Invoice History Import
+  const handleDownloadInvoiceSampleCsv = () => {
+    const headers = [
+      'Document No',
+      'Date',
+      'Document Type',
+      'Customer Name',
+      'Customer Mobile',
+      'Capacity / Model',
+      'Taxable Amount',
+      'CGST',
+      'SGST',
+      'Grand Total',
+      'Firm Name',
+    ];
+    const sampleRows = [
+      ['"INV/26-27/001"', '"2026-10-25"', '"invoice"', '"Ramesh Sharma"', '"9829012345"', '"3.00 kW"', '110000', '2750', '2750', '115500', '"Jagga Enterprises"'],
+      ['"INV/26-27/002"', '"2026-10-26"', '"invoice"', '"Pooja Verma"', '"9414098765"', '"5.00 kW"', '180000', '4500', '4500', '189000', '"Jagga Enterprises"'],
+      ['"EST/26-27/003"', '"2026-10-27"', '"estimate"', '"Vikram Singh"', '"9829554321"', '"4.00 kW"', '145000', '3625', '3625', '152250', '"Jagga Enterprises"'],
+    ];
+    const csvContent =
+      'data:text/csv;charset=utf-8,' + [headers.join(','), ...sampleRows.map((e) => e.join(','))].join('\n');
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement('a');
+    link.setAttribute('href', encodedUri);
+    link.setAttribute('download', `Sample_Invoices_Import_Template.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  // CSV Bulk Import Handler for Invoice History
+  const handleImportHistoryCSV = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const text = await file.text();
+      // Robust CSV parsing taking quotes and line breaks into account
+      const rawRows = text.split(/\r\n|\n|\r/).filter((r) => r.trim().length > 0);
+      if (rawRows.length < 2) {
+        setBackupNotice({ type: 'error', text: 'CSV file is empty or missing data rows.' });
+        if (csvHistoryFileInputRef.current) csvHistoryFileInputRef.current.value = '';
+        return;
+      }
+
+      const parseRow = (line: string): string[] => {
+        const result: string[] = [];
+        let cur = '';
+        let insideQuotes = false;
+        for (let i = 0; i < line.length; i++) {
+          const char = line[i];
+          if (char === '"') {
+            if (insideQuotes && line[i + 1] === '"') {
+              cur += '"';
+              i++;
+            } else {
+              insideQuotes = !insideQuotes;
+            }
+          } else if (char === ',' && !insideQuotes) {
+            result.push(cur.trim());
+            cur = '';
+          } else {
+            cur += char;
+          }
+        }
+        result.push(cur.trim());
+        return result.map((c) => c.replace(/^["']|["']$/g, '').trim());
+      };
+
+      const headerRow = parseRow(rawRows[0]).map((h) => h.toLowerCase());
+      
+      // Dynamic column resolution based on common header names
+      const colInvNo = headerRow.findIndex((h) => h.includes('doc') || h.includes('inv') || h.includes('number'));
+      const colDate = headerRow.findIndex((h) => h.includes('date'));
+      const colDocType = headerRow.findIndex((h) => h.includes('type'));
+      const colCustomer = headerRow.findIndex((h) => h.includes('customer') || h.includes('client') || h.includes('party'));
+      const colMobile = headerRow.findIndex((h) => h.includes('phone') || h.includes('mobile'));
+      const colCapacity = headerRow.findIndex((h) => h.includes('capacity') || h.includes('model') || h.includes('spec') || h.includes('item'));
+      const colTaxable = headerRow.findIndex((h) => h.includes('taxable'));
+      const colCgst = headerRow.findIndex((h) => h.includes('cgst'));
+      const colSgst = headerRow.findIndex((h) => h.includes('sgst'));
+      const colTotal = headerRow.findIndex((h) => h.includes('grand') || h.includes('total') || h.includes('amount'));
+      const colFirm = headerRow.findIndex((h) => h.includes('firm') || h.includes('company'));
+
+      const importedRecords: InvoiceHistoryRecord[] = [];
+      const timestamp = Date.now();
+
+      for (let i = 1; i < rawRows.length; i++) {
+        const cols = parseRow(rawRows[i]);
+        if (cols.length === 0 || cols.every((c) => !c)) continue;
+
+        const invNo = (colInvNo !== -1 && cols[colInvNo]) ? cols[colInvNo] : `INV/IMP/${timestamp}-${i}`;
+        const date = (colDate !== -1 && cols[colDate]) ? cols[colDate] : new Date().toISOString().split('T')[0];
+        const rawType = (colDocType !== -1 && cols[colDocType]) ? cols[colDocType].toLowerCase() : 'invoice';
+        const docType = (rawType.includes('est') || rawType.includes('quot'))
+          ? 'estimate'
+          : rawType.includes('rec')
+          ? 'receipt'
+          : rawType.includes('wcc')
+          ? 'wcc'
+          : 'invoice';
+
+        const customerName = (colCustomer !== -1 && cols[colCustomer]) ? cols[colCustomer] : 'Bulk Client';
+        const customerMobile = (colMobile !== -1 && cols[colMobile]) ? cols[colMobile] : '';
+        const plantCapacityKw = (colCapacity !== -1 && cols[colCapacity]) ? cols[colCapacity] : '';
+        const taxableAmount = (colTaxable !== -1 && cols[colTaxable]) ? parseFloat(cols[colTaxable]) || 0 : 0;
+        const cgstAmount = (colCgst !== -1 && cols[colCgst]) ? parseFloat(cols[colCgst]) || 0 : 0;
+        const sgstAmount = (colSgst !== -1 && cols[colSgst]) ? parseFloat(cols[colSgst]) || 0 : 0;
+        const grandTotal = (colTotal !== -1 && cols[colTotal]) ? parseFloat(cols[colTotal]) || (taxableAmount + cgstAmount + sgstAmount) : (taxableAmount + cgstAmount + sgstAmount);
+        const firmName = (colFirm !== -1 && cols[colFirm]) ? cols[colFirm] : 'My Business Firm';
+
+        importedRecords.push({
+          id: `imp_${timestamp}_${i}`,
+          invNo,
+          date,
+          docType: docType as any,
+          customerName,
+          customerMobile,
+          plantCapacityKw,
+          taxableAmount,
+          cgstAmount,
+          sgstAmount,
+          tax5Amount: cgstAmount + sgstAmount,
+          tax18Amount: 0,
+          grandTotal,
+          firmName,
+          itemsCount: 1,
+          itemsSnapshot: [
+            {
+              id: Date.now() + i,
+              name: plantCapacityKw ? `Package: ${plantCapacityKw}` : 'General Supply Item',
+              hsn: '85414300',
+              gst: taxableAmount > 0 ? Math.round(((cgstAmount + sgstAmount) / taxableAmount) * 100) || 5 : 5,
+              qty: 1,
+              unit: 'NOS',
+              rate: taxableAmount || grandTotal,
+              buyRate: Math.round((taxableAmount || grandTotal) * 0.8),
+            },
+          ],
+          customerSnapshot: {
+            name: customerName,
+            mobile: customerMobile,
+            relation: '',
+            address: '',
+            aadhar: '',
+            gstin: '',
+            appNo: '',
+            consumerNo: '',
+            sanctionLoad: plantCapacityKw || '',
+          },
+          createdAt: new Date().toISOString(),
+        });
+      }
+
+      if (importedRecords.length === 0) {
+        setBackupNotice({ type: 'error', text: 'Could not extract valid invoice rows from the uploaded CSV.' });
+        if (csvHistoryFileInputRef.current) csvHistoryFileInputRef.current.value = '';
+        return;
+      }
+
+      if (onImportInvoicesHistory) {
+        onImportInvoicesHistory(importedRecords);
+      } else {
+        // Fallback direct storage update
+        const existing = [...invoicesHistory];
+        const existingNos = new Set(existing.map((h) => h.invNo));
+        const filteredNew = importedRecords.filter((rec) => !existingNos.has(rec.invNo));
+        const combined = [...filteredNew, ...existing];
+        localStorage.setItem('nb_invoices_history', JSON.stringify(combined));
+      }
+
+      setBackupNotice({
+        type: 'success',
+        text: `✅ Successfully imported ${importedRecords.length} invoices from CSV into History!`,
+      });
+    } catch (err: any) {
+      setBackupNotice({ type: 'error', text: `Failed to import CSV: ${err.message}` });
+    }
+
+    if (csvHistoryFileInputRef.current) csvHistoryFileInputRef.current.value = '';
+  };
+
   // Full JSON System Backup & Restore
   const handleExportFullJsonBackup = () => {
     try {
@@ -285,6 +471,15 @@ export const CustomerCrmModal: React.FC<CustomerCrmModalProps> = ({
           type="file"
           accept=".json,application/json"
           onChange={handleImportJsonFile}
+          className="hidden"
+        />
+
+        {/* Hidden File Input for CSV Invoices Bulk Import */}
+        <input
+          ref={csvHistoryFileInputRef}
+          type="file"
+          accept=".csv,text/csv"
+          onChange={handleImportHistoryCSV}
           className="hidden"
         />
 
@@ -677,11 +872,25 @@ export const CustomerCrmModal: React.FC<CustomerCrmModalProps> = ({
                     )}
                   </div>
 
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <button
+                      onClick={handleDownloadInvoiceSampleCsv}
+                      className="flex items-center gap-1 rounded bg-slate-900 hover:bg-slate-800 border border-slate-700 px-2.5 py-1 text-[11px] font-bold text-cyan-300 transition"
+                      title="Download sample CSV template for bulk invoices import"
+                    >
+                      <Download className="h-3.5 w-3.5 text-cyan-400" /> Sample CSV
+                    </button>
+                    <button
+                      onClick={() => csvHistoryFileInputRef.current?.click()}
+                      className="flex items-center gap-1 rounded bg-purple-900/50 hover:bg-purple-800/70 border border-purple-500/50 px-2.5 py-1 text-[11px] font-bold text-purple-200 transition"
+                      title="Upload CSV to import multiple invoices into History"
+                    >
+                      <Upload className="h-3.5 w-3.5 text-purple-400" /> Import Invoices CSV
+                    </button>
                     <button
                       onClick={handleExportFilteredHistoryCSV}
                       disabled={filteredHistory.length === 0}
-                      className="flex items-center gap-1 rounded bg-slate-900 hover:bg-slate-800 border border-slate-700 px-2.5 py-1 text-[11px] font-bold text-slate-300 disabled:opacity-40"
+                      className="flex items-center gap-1 rounded bg-slate-900 hover:bg-slate-800 border border-slate-700 px-2.5 py-1 text-[11px] font-bold text-slate-300 disabled:opacity-40 transition"
                     >
                       <FileSpreadsheet className="h-3.5 w-3.5 text-emerald-400" /> Export Filtered ({filteredHistory.length}) to CSV
                     </button>

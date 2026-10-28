@@ -111,16 +111,32 @@ export const PWAInstallButton: React.FC<{ compact?: boolean }> = ({ compact = fa
                     </div>
                   </div>
 
-                  {/* Desktop / Laptop Guide */}
-                  <div className="rounded-2xl border border-slate-800 bg-slate-950 p-3.5 space-y-2">
-                    <div className="flex items-center gap-2 text-white font-bold text-xs">
-                      <Monitor className="h-4 w-4 text-cyan-400" />
-                      <span>Computer / Laptop (Chrome / Edge)</span>
+                  {/* Desktop / Laptop Guide with "Open in app" explanation */}
+                  <div className="rounded-2xl border border-cyan-500/40 bg-slate-950 p-3.5 space-y-2.5">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2 text-white font-bold text-xs">
+                        <Monitor className="h-4 w-4 text-cyan-400" />
+                        <span>Computer / Laptop (Chrome / Edge)</span>
+                      </div>
+                      <span className="rounded bg-cyan-500/20 px-2 py-0.5 text-[9px] font-bold text-cyan-300">
+                        Desktop App
+                      </span>
                     </div>
+
+                    {/* Notice for "Open in app" address bar button */}
+                    <div className="rounded-xl border border-amber-500/40 bg-amber-950/30 p-2.5 text-[11px] text-amber-200 space-y-1">
+                      <div className="font-extrabold flex items-center gap-1.5 text-amber-300">
+                        <span>🖥️</span> Address Bar mein "Open in app" button:
+                      </div>
+                      <p className="text-slate-200">
+                        Agar aapke Chrome address bar (URL ke bilkul right side) par <b>[ 🖥️ Open in app ]</b> dikh raha hai, toh ye app aapke PC par <b>already installed</b> hai! Use click karke direct app window kholiye.
+                      </p>
+                    </div>
+
                     <div className="space-y-1.5 text-slate-300 text-[11px]">
                       <div className="flex items-start gap-2">
                         <span className="flex h-4 w-4 items-center justify-center rounded-full bg-blue-500 text-[10px] font-black text-slate-950 shrink-0">1</span>
-                        <span>Browser address bar (URL) ke right side me <b>Install icon (🖥️ / 📥)</b> par click karein.</span>
+                        <span>Browser address bar (URL) ke right side me <b>Install icon (🖥️ / 📥)</b> ya <b>Open in app</b> par click karein.</span>
                       </div>
                       <div className="flex items-start gap-2">
                         <span className="flex h-4 w-4 items-center justify-center rounded-full bg-blue-500 text-[10px] font-black text-slate-950 shrink-0">2</span>

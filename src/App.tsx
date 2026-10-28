@@ -902,6 +902,46 @@ export default function App() {
     alert(`✨ New Bill Initialized!\n• Doc No: ${newInvNo}\n• Previous bill safely saved to CRM & Invoices History.`);
   };
 
+  // CSV Bulk Invoices Import handler
+  const handleImportInvoicesHistory = (imported: InvoiceHistoryRecord[]) => {
+    const existing = [...invoicesHistory];
+    const existingNos = new Set(existing.map((h) => h.invNo));
+    const filteredNew = imported.filter((rec) => !existingNos.has(rec.invNo));
+    const combined = [...filteredNew, ...existing];
+    setInvoicesHistory(combined);
+    localStorage.setItem('nb_invoices_history', JSON.stringify(combined));
+    alert(`✅ ${imported.length} invoices processed: ${filteredNew.length} imported into history, ${imported.length - filteredNew.length} duplicates avoided.`);
+  };
+
+  // Global Keyboard Shortcuts (Ctrl+N: New Bill, Ctrl+S: Save, Ctrl+P: Print, Ctrl+D: PDF, Ctrl+H: History/CRM)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (!e.ctrlKey && !e.metaKey) return;
+      const key = e.key.toLowerCase();
+
+      if (key === 'n') {
+        e.preventDefault();
+        handleNewBill();
+      } else if (key === 's') {
+        e.preventDefault();
+        recordInvoiceHistory();
+        alert(`💾 Active Bill [${meta.invNo}] saved to CRM, History & Books!`);
+      } else if (key === 'p') {
+        e.preventDefault();
+        handlePrint();
+      } else if (key === 'd') {
+        e.preventDefault();
+        handleDownloadPdf();
+      } else if (key === 'h') {
+        e.preventDefault();
+        setIsCrmOpen((prev) => !prev);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [meta.invNo, firm, customer, items, invoicesHistory, license, docType]);
+
   return (
     <div className="flex h-screen w-screen flex-col bg-slate-950 font-sans antialiased text-slate-100 overflow-hidden">
       {/* Top Header Navigation */}
@@ -1072,6 +1112,7 @@ export default function App() {
         invoicesHistory={invoicesHistory}
         onLoadInvoiceRecord={handleLoadInvoiceRecord}
         onDeleteHistoryRecord={handleDeleteHistoryRecord}
+        onImportInvoicesHistory={handleImportInvoicesHistory}
       />
 
       {/* Business Feature 3: Monthly GST Return Export (GSTR-1 Format) */}
