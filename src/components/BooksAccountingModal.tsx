@@ -27,8 +27,10 @@ import {
   HelpCircle,
   X,
   FileText,
-  AlertCircle
+  AlertCircle,
+  Tag
 } from 'lucide-react';
+import { TradeKey } from '../types/solar';
 
 interface BooksAccountingModalProps {
   isOpen: boolean;
@@ -37,24 +39,53 @@ interface BooksAccountingModalProps {
   onEntriesChange: (entries: BookEntry[]) => void;
   invoicesHistory: InvoiceHistoryRecord[];
   firmName: string;
+  trade?: TradeKey;
 }
 
-const CATEGORY_LABELS: Record<BookCategory, { label: string; type: TransactionType; color: string }> = {
-  SALES_INVOICE: { label: 'Solar Invoice Sale', type: 'INFLOW', color: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' },
-  SOLAR_SUBSIDY: { label: 'PM Surya Ghar Subsidy DBT', type: 'INFLOW', color: 'bg-teal-500/20 text-teal-300 border-teal-500/30' },
+export const STANDARD_CATEGORY_LABELS: Record<string, { label: string; type: TransactionType; color: string }> = {
+  // Common Universal Inflows
+  SALES_INVOICE: { label: 'Sales / Tax Invoice', type: 'INFLOW', color: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' },
+  DIRECT_INCOME: { label: 'Direct Income / Services', type: 'INFLOW', color: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' },
   CUSTOMER_ADVANCE: { label: 'Customer Advance / Token', type: 'INFLOW', color: 'bg-blue-500/20 text-blue-400 border-blue-500/30' },
+  INTEREST_INCOME: { label: 'Bank Interest & Credit', type: 'INFLOW', color: 'bg-teal-500/20 text-teal-300 border-teal-500/30' },
+  COMMISSION_INCOME: { label: 'Commission & Brokerage', type: 'INFLOW', color: 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30' },
   OTHER_INCOME: { label: 'Other Business Income', type: 'INFLOW', color: 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30' },
+  SOLAR_SUBSIDY: { label: 'PM Surya Ghar Subsidy DBT', type: 'INFLOW', color: 'bg-teal-500/20 text-teal-300 border-teal-500/30' },
+
+  // Common Universal Outflows
+  GOODS_PURCHASE: { label: 'Goods / Stock / Raw Material Purchase', type: 'OUTFLOW', color: 'bg-amber-500/20 text-amber-300 border-amber-500/30' },
+  OFFICE_EXPENSE: { label: 'Office Expenses & Stationery', type: 'OUTFLOW', color: 'bg-blue-500/20 text-blue-300 border-blue-500/30' },
+  BANK_CHARGES: { label: 'Bank Charges & Commission', type: 'OUTFLOW', color: 'bg-slate-500/20 text-slate-300 border-slate-500/30' },
+  SALARY_STAFF: { label: 'Staff Salary & Wages', type: 'OUTFLOW', color: 'bg-purple-500/20 text-purple-300 border-purple-500/30' },
+  OFFICE_RENT: { label: 'Office / Shop / Godown Rent', type: 'OUTFLOW', color: 'bg-purple-500/20 text-purple-300 border-purple-500/30' },
+  ELECTRICITY_UTILITY: { label: 'Electricity & Utility Bills', type: 'OUTFLOW', color: 'bg-yellow-500/20 text-yellow-300 border-yellow-500/30' },
+  FREIGHT_TRANSPORT: { label: 'Vehicle Transport & Freight', type: 'OUTFLOW', color: 'bg-orange-500/20 text-orange-300 border-orange-500/30' },
+  MARKETING_ADS: { label: 'Marketing & Advertising', type: 'OUTFLOW', color: 'bg-pink-500/20 text-pink-300 border-pink-500/30' },
+  TEA_REFRESHMENT: { label: 'Tea, Refreshment & Staff Welfare', type: 'OUTFLOW', color: 'bg-amber-500/20 text-amber-300 border-amber-500/30' },
+  TRAVEL_CONVEYANCE: { label: 'Travel & Conveyance', type: 'OUTFLOW', color: 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30' },
+  REPAIR_MAINTENANCE: { label: 'Repairs & Maintenance', type: 'OUTFLOW', color: 'bg-rose-500/20 text-rose-300 border-rose-500/30' },
+  GST_TAX_PAYMENT: { label: 'GST / Tax Challan Payment', type: 'OUTFLOW', color: 'bg-red-500/20 text-red-300 border-red-500/30' },
+  OWNER_DRAWING: { label: 'Owner Personal Drawings', type: 'OUTFLOW', color: 'bg-slate-500/20 text-slate-300 border-slate-500/30' },
+  MISC_EXPENSE: { label: 'General / Misc Expense', type: 'OUTFLOW', color: 'bg-slate-500/20 text-slate-300 border-slate-500/30' },
+
+  // Solar EPC Specific Outflows
   PANEL_PURCHASE: { label: 'Solar PV Module Purchase', type: 'OUTFLOW', color: 'bg-amber-500/20 text-amber-300 border-amber-500/30' },
   INVERTER_PURCHASE: { label: 'Inverter Purchase', type: 'OUTFLOW', color: 'bg-amber-500/20 text-amber-300 border-amber-500/30' },
   HARDWARE_CABLES: { label: 'Structure, GI & Cable Hardware', type: 'OUTFLOW', color: 'bg-amber-500/20 text-amber-300 border-amber-500/30' },
   LABOR_WAGES: { label: 'Installation & Electrician Labor', type: 'OUTFLOW', color: 'bg-rose-500/20 text-rose-300 border-rose-500/30' },
-  FREIGHT_TRANSPORT: { label: 'Vehicle Transport & Freight', type: 'OUTFLOW', color: 'bg-orange-500/20 text-orange-300 border-orange-500/30' },
-  OFFICE_RENT: { label: 'Office / Godown Rent', type: 'OUTFLOW', color: 'bg-purple-500/20 text-purple-300 border-purple-500/30' },
-  SALARY_STAFF: { label: 'Staff & Team Salary', type: 'OUTFLOW', color: 'bg-purple-500/20 text-purple-300 border-purple-500/30' },
-  BANK_CHARGES: { label: 'Bank Charges & GST', type: 'OUTFLOW', color: 'bg-slate-500/20 text-slate-300 border-slate-500/30' },
-  GST_TAX_PAYMENT: { label: 'GST Tax Challan Payment', type: 'OUTFLOW', color: 'bg-red-500/20 text-red-300 border-red-500/30' },
-  OWNER_DRAWING: { label: 'Owner Personal Drawings', type: 'OUTFLOW', color: 'bg-slate-500/20 text-slate-300 border-slate-500/30' },
-  MISC_EXPENSE: { label: 'General / Misc Expense', type: 'OUTFLOW', color: 'bg-slate-500/20 text-slate-300 border-slate-500/30' },
+};
+
+export const getCategoryBadgeInfo = (cat: string, type: TransactionType) => {
+  if (STANDARD_CATEGORY_LABELS[cat]) {
+    return STANDARD_CATEGORY_LABELS[cat];
+  }
+  return {
+    label: cat,
+    type,
+    color: type === 'INFLOW'
+      ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
+      : 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30',
+  };
 };
 
 export const BooksAccountingModal: React.FC<BooksAccountingModalProps> = ({
@@ -64,23 +95,53 @@ export const BooksAccountingModal: React.FC<BooksAccountingModalProps> = ({
   onEntriesChange,
   invoicesHistory,
   firmName,
+  trade = 'solar',
 }) => {
+  const isSolar = trade === 'solar';
   const [activeTab, setActiveTab] = useState<'daybook' | 'bank_upload' | 'itr_pnl'>('daybook');
   const [searchTerm, setSearchTerm] = useState('');
   const [modeFilter, setModeFilter] = useState<'ALL' | 'BANK' | 'CASH' | 'UPI'>('ALL');
   const [typeFilter, setTypeFilter] = useState<'ALL' | 'INFLOW' | 'OUTFLOW'>('ALL');
+
+  // User-defined custom categories stored in localStorage
+  const [customCategories, setCustomCategories] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem('nb_custom_ledger_categories');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
 
   // Manual Entry Form State
   const [isAddingEntry, setIsAddingEntry] = useState(false);
   const [newDate, setNewDate] = useState(new Date().toISOString().split('T')[0]);
   const [newParticulars, setNewParticulars] = useState('');
   const [newType, setNewType] = useState<TransactionType>('OUTFLOW');
-  const [newCategory, setNewCategory] = useState<BookCategory>('PANEL_PURCHASE');
+  const [newCategory, setNewCategory] = useState<BookCategory>(isSolar ? 'PANEL_PURCHASE' : 'GOODS_PURCHASE');
+  const [isCustomMode, setIsCustomMode] = useState(false);
+  const [customInput, setCustomInput] = useState('');
   const [newMode, setNewMode] = useState<PaymentMode>('BANK');
   const [newAmount, setNewAmount] = useState<string>('');
   const [newParty, setNewParty] = useState('');
   const [newRefNo, setNewRefNo] = useState('');
   const [newNotes, setNewNotes] = useState('');
+
+  // Handle adding custom ledger name
+  const handleSaveCustomCategory = () => {
+    const trimmed = customInput.trim();
+    if (!trimmed) return;
+    if (!customCategories.includes(trimmed)) {
+      const updated = [...customCategories, trimmed];
+      setCustomCategories(updated);
+      try {
+        localStorage.setItem('nb_custom_ledger_categories', JSON.stringify(updated));
+      } catch {}
+    }
+    setNewCategory(trimmed);
+    setIsCustomMode(false);
+    setCustomInput('');
+  };
 
   // Bank Statement Parser State
   const [rawStatementText, setRawStatementText] = useState('');
@@ -379,17 +440,15 @@ export const BooksAccountingModal: React.FC<BooksAccountingModalProps> = ({
   };
 
   // -------------------------------------------------------------
-  // ITR & P&L Calculations
+  // ITR & P&L Calculations (Adaptive for all business trades)
   // -------------------------------------------------------------
   const pnlReport = useMemo(() => {
     let salesTurnover = 0;
     let subsidyIncome = 0;
     let otherIncome = 0;
 
-    let panelCosts = 0;
-    let inverterCosts = 0;
-    let hardwareCosts = 0;
-    let laborCosts = 0;
+    let directMaterialCosts = 0;
+    let directLaborCosts = 0;
 
     let freightExpenses = 0;
     let rentExpenses = 0;
@@ -410,20 +469,31 @@ export const BooksAccountingModal: React.FC<BooksAccountingModalProps> = ({
         if (e.mode === 'CASH') cashTurnover += amt;
         else digitalTurnover += amt;
       } else {
-        if (e.category === 'PANEL_PURCHASE') panelCosts += amt;
-        else if (e.category === 'INVERTER_PURCHASE') inverterCosts += amt;
-        else if (e.category === 'HARDWARE_CABLES') hardwareCosts += amt;
-        else if (e.category === 'LABOR_WAGES') laborCosts += amt;
-        else if (e.category === 'FREIGHT_TRANSPORT') freightExpenses += amt;
-        else if (e.category === 'OFFICE_RENT') rentExpenses += amt;
-        else if (e.category === 'SALARY_STAFF') salaryExpenses += amt;
-        else if (e.category === 'BANK_CHARGES') bankExpenses += amt;
-        else miscExpenses += amt;
+        if (
+          e.category === 'GOODS_PURCHASE' ||
+          e.category === 'PANEL_PURCHASE' ||
+          e.category === 'INVERTER_PURCHASE' ||
+          e.category === 'HARDWARE_CABLES'
+        ) {
+          directMaterialCosts += amt;
+        } else if (e.category === 'LABOR_WAGES') {
+          directLaborCosts += amt;
+        } else if (e.category === 'FREIGHT_TRANSPORT') {
+          freightExpenses += amt;
+        } else if (e.category === 'OFFICE_RENT') {
+          rentExpenses += amt;
+        } else if (e.category === 'SALARY_STAFF') {
+          salaryExpenses += amt;
+        } else if (e.category === 'BANK_CHARGES') {
+          bankExpenses += amt;
+        } else {
+          miscExpenses += amt;
+        }
       }
     });
 
     const totalTurnover = salesTurnover + subsidyIncome + otherIncome;
-    const directCogs = panelCosts + inverterCosts + hardwareCosts + laborCosts;
+    const directCogs = directMaterialCosts + directLaborCosts;
     const grossProfit = totalTurnover - directCogs;
     const grossMarginPct = totalTurnover > 0 ? (grossProfit / totalTurnover) * 100 : 0;
 
@@ -441,13 +511,11 @@ export const BooksAccountingModal: React.FC<BooksAccountingModalProps> = ({
       totalTurnover,
       cashTurnover,
       digitalTurnover,
-      panelCosts,
-      inverterCosts,
-      hardwareCosts,
-      laborCosts,
+      directMaterialCosts,
+      directLaborCosts,
       directCogs,
       grossProfit,
-      grossMarginPct,
+      grossMarginPct: isNaN(grossMarginPct) ? 0 : grossMarginPct,
       freightExpenses,
       rentExpenses,
       salaryExpenses,
@@ -455,7 +523,7 @@ export const BooksAccountingModal: React.FC<BooksAccountingModalProps> = ({
       miscExpenses,
       indirectExpenses,
       netProfit,
-      netMarginPct,
+      netMarginPct: isNaN(netMarginPct) ? 0 : netMarginPct,
       presumptiveProfit44AD,
     };
   }, [safeEntries]);
@@ -723,6 +791,7 @@ export const BooksAccountingModal: React.FC<BooksAccountingModalProps> = ({
                         onClick={() => {
                           setNewType('INFLOW');
                           setNewCategory('SALES_INVOICE');
+                          setIsCustomMode(false);
                         }}
                         className={`flex-1 py-1.5 rounded-lg font-bold text-xs transition ${
                           newType === 'INFLOW' ? 'bg-emerald-600 text-white' : 'bg-slate-900 text-slate-400 border border-slate-700'
@@ -734,7 +803,8 @@ export const BooksAccountingModal: React.FC<BooksAccountingModalProps> = ({
                         type="button"
                         onClick={() => {
                           setNewType('OUTFLOW');
-                          setNewCategory('PANEL_PURCHASE');
+                          setNewCategory(isSolar ? 'PANEL_PURCHASE' : 'GOODS_PURCHASE');
+                          setIsCustomMode(false);
                         }}
                         className={`flex-1 py-1.5 rounded-lg font-bold text-xs transition ${
                           newType === 'OUTFLOW' ? 'bg-rose-600 text-white' : 'bg-slate-900 text-slate-400 border border-slate-700'
@@ -760,35 +830,113 @@ export const BooksAccountingModal: React.FC<BooksAccountingModalProps> = ({
                   </div>
 
                   <div>
-                    <label className="text-[11px] text-slate-400 block mb-1">Category / Ledger</label>
-                    <select
-                      value={newCategory}
-                      onChange={(e: any) => setNewCategory(e.target.value)}
-                      className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-1.5 text-white focus:border-amber-400 focus:outline-none"
-                    >
-                      {newType === 'INFLOW' ? (
-                        <>
-                          <option value="SALES_INVOICE">Solar Invoice Sale</option>
-                          <option value="SOLAR_SUBSIDY">PM Surya Ghar Subsidy DBT</option>
-                          <option value="CUSTOMER_ADVANCE">Customer Advance</option>
-                          <option value="OTHER_INCOME">Other Business Income</option>
-                        </>
-                      ) : (
-                        <>
-                          <option value="PANEL_PURCHASE">Solar PV Module Purchase</option>
-                          <option value="INVERTER_PURCHASE">Solar Inverter Purchase</option>
-                          <option value="HARDWARE_CABLES">Structure, GI & Cable Hardware</option>
-                          <option value="LABOR_WAGES">Installation Labor & Electrician</option>
-                          <option value="FREIGHT_TRANSPORT">Vehicle Transport & Freight</option>
-                          <option value="OFFICE_RENT">Office & Godown Rent</option>
-                          <option value="SALARY_STAFF">Staff Salary</option>
-                          <option value="BANK_CHARGES">Bank Charges & Folio</option>
-                          <option value="GST_TAX_PAYMENT">GST Tax Payment</option>
-                          <option value="OWNER_DRAWING">Owner Personal Drawing</option>
-                          <option value="MISC_EXPENSE">General Expense</option>
-                        </>
-                      )}
-                    </select>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="text-[11px] text-slate-400">Category / Ledger</label>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsCustomMode(!isCustomMode);
+                          if (!isCustomMode) setCustomInput('');
+                        }}
+                        className="text-[10px] text-amber-400 hover:text-amber-300 font-bold flex items-center gap-1"
+                      >
+                        <Tag className="h-2.5 w-2.5" />
+                        {isCustomMode ? '← Pick List' : '+ Write Custom'}
+                      </button>
+                    </div>
+
+                    {isCustomMode ? (
+                      <div className="flex gap-1.5">
+                        <input
+                          type="text"
+                          value={customInput}
+                          onChange={(e) => setCustomInput(e.target.value)}
+                          placeholder="e.g. Courier Charges, Diesel..."
+                          className="flex-1 rounded-lg border border-amber-500 bg-slate-900 px-2.5 py-1.5 text-xs text-white focus:outline-none font-medium"
+                          autoFocus
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              handleSaveCustomCategory();
+                            }
+                          }}
+                        />
+                        <button
+                          type="button"
+                          onClick={handleSaveCustomCategory}
+                          className="rounded-lg bg-amber-500 px-2.5 py-1.5 text-xs font-bold text-slate-950 hover:bg-amber-400"
+                        >
+                          Add
+                        </button>
+                      </div>
+                    ) : (
+                      <select
+                        value={newCategory}
+                        onChange={(e: any) => {
+                          if (e.target.value === '__CUSTOM__') {
+                            setIsCustomMode(true);
+                          } else {
+                            setNewCategory(e.target.value);
+                          }
+                        }}
+                        className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-1.5 text-white focus:border-amber-400 focus:outline-none"
+                      >
+                        {newType === 'INFLOW' ? (
+                          <>
+                            <optgroup label="General Business Inflow (All Trades)">
+                              <option value="SALES_INVOICE">Sales / Customer Invoice</option>
+                              <option value="DIRECT_INCOME">Direct Income / Service Fee</option>
+                              <option value="CUSTOMER_ADVANCE">Customer Advance / Token</option>
+                              <option value="INTEREST_INCOME">Bank Interest & Credit</option>
+                              <option value="COMMISSION_INCOME">Commission & Brokerage</option>
+                              <option value="OTHER_INCOME">Other Business Income</option>
+                            </optgroup>
+                            {isSolar && (
+                              <optgroup label="Solar EPC Specific Inflow">
+                                <option value="SOLAR_SUBSIDY">PM Surya Ghar Subsidy DBT</option>
+                              </optgroup>
+                            )}
+                          </>
+                        ) : (
+                          <>
+                            <optgroup label="Common Business Expenses (All Trades)">
+                              <option value="GOODS_PURCHASE">Goods / Stock / Raw Material Purchase</option>
+                              <option value="OFFICE_EXPENSE">General Office Expense & Stationery</option>
+                              <option value="BANK_CHARGES">Bank Charges & Commission</option>
+                              <option value="SALARY_STAFF">Staff Salary & Wages</option>
+                              <option value="OFFICE_RENT">Office / Shop / Godown Rent</option>
+                              <option value="ELECTRICITY_UTILITY">Electricity & Utility Bills</option>
+                              <option value="FREIGHT_TRANSPORT">Freight, Transport & Courier</option>
+                              <option value="MARKETING_ADS">Marketing & Advertising</option>
+                              <option value="TEA_REFRESHMENT">Tea & Refreshment / Staff Welfare</option>
+                              <option value="TRAVEL_CONVEYANCE">Travel & Conveyance</option>
+                              <option value="REPAIR_MAINTENANCE">Repairs & Maintenance</option>
+                              <option value="GST_TAX_PAYMENT">GST / Tax Challan Payment</option>
+                              <option value="OWNER_DRAWING">Owner Personal Drawings</option>
+                              <option value="MISC_EXPENSE">General / Miscellaneous Expense</option>
+                            </optgroup>
+                            {isSolar && (
+                              <optgroup label="Solar EPC Material & Labor">
+                                <option value="PANEL_PURCHASE">Solar PV Module Purchase</option>
+                                <option value="INVERTER_PURCHASE">Solar Inverter Purchase</option>
+                                <option value="HARDWARE_CABLES">Structure, GI & Cable Hardware</option>
+                                <option value="LABOR_WAGES">Installation Labor & Electrician</option>
+                              </optgroup>
+                            )}
+                          </>
+                        )}
+                        {customCategories.length > 0 && (
+                          <optgroup label="Your Custom Business Ledgers">
+                            {customCategories.map((c) => (
+                              <option key={c} value={c}>
+                                {c}
+                              </option>
+                            ))}
+                          </optgroup>
+                        )}
+                        <option value="__CUSTOM__">+ Write Custom Ledger Name...</option>
+                      </select>
+                    )}
                   </div>
                 </div>
 
@@ -865,10 +1013,7 @@ export const BooksAccountingModal: React.FC<BooksAccountingModalProps> = ({
                 <tbody className="divide-y divide-slate-800/60 font-mono text-slate-300">
                   {filteredEntries.length > 0 ? (
                     filteredEntries.map((entry) => {
-                      const catInfo = CATEGORY_LABELS[entry.category] || {
-                        label: entry.category,
-                        color: 'bg-slate-700 text-slate-300',
-                      };
+                      const catInfo = getCategoryBadgeInfo(entry.category, entry.type);
                       return (
                         <tr key={entry.id} className="hover:bg-slate-900/40 transition">
                           <td className="py-2.5 px-3 text-slate-400 whitespace-nowrap">{entry.date}</td>
@@ -1059,25 +1204,43 @@ export const BooksAccountingModal: React.FC<BooksAccountingModalProps> = ({
                             >
                               {row.type === 'INFLOW' ? (
                                 <>
-                                  <option value="SALES_INVOICE">Solar Invoice Sale</option>
-                                  <option value="SOLAR_SUBSIDY">PM Surya Ghar Subsidy DBT</option>
+                                  <option value="SALES_INVOICE">Sales / Customer Invoice</option>
+                                  <option value="DIRECT_INCOME">Direct Income / Service Fees</option>
                                   <option value="CUSTOMER_ADVANCE">Customer Advance</option>
+                                  <option value="INTEREST_INCOME">Bank Interest / Credit</option>
                                   <option value="OTHER_INCOME">Other Business Income</option>
+                                  {isSolar && <option value="SOLAR_SUBSIDY">PM Surya Ghar Subsidy DBT</option>}
                                 </>
                               ) : (
                                 <>
-                                  <option value="PANEL_PURCHASE">Solar PV Module Purchase</option>
-                                  <option value="INVERTER_PURCHASE">Solar Inverter Purchase</option>
-                                  <option value="HARDWARE_CABLES">Structure, GI & Cable Hardware</option>
-                                  <option value="LABOR_WAGES">Installation Labor & Electrician</option>
-                                  <option value="FREIGHT_TRANSPORT">Vehicle Transport & Freight</option>
-                                  <option value="OFFICE_RENT">Office & Godown Rent</option>
-                                  <option value="SALARY_STAFF">Staff Salary</option>
+                                  <option value="GOODS_PURCHASE">Goods / Stock / Raw Material</option>
+                                  <option value="OFFICE_EXPENSE">Office Expenses & Stationery</option>
                                   <option value="BANK_CHARGES">Bank Charges & Folio</option>
-                                  <option value="GST_TAX_PAYMENT">GST Tax Payment</option>
+                                  <option value="SALARY_STAFF">Staff Salary & Wages</option>
+                                  <option value="OFFICE_RENT">Office / Shop Rent</option>
+                                  <option value="ELECTRICITY_UTILITY">Electricity & Utility</option>
+                                  <option value="FREIGHT_TRANSPORT">Vehicle Freight & Transport</option>
+                                  <option value="MARKETING_ADS">Marketing & Advertising</option>
+                                  <option value="TEA_REFRESHMENT">Tea & Refreshment</option>
+                                  <option value="GST_TAX_PAYMENT">GST / Tax Payment</option>
                                   <option value="OWNER_DRAWING">Owner Personal Drawing</option>
                                   <option value="MISC_EXPENSE">General Expense</option>
+                                  {isSolar && (
+                                    <>
+                                      <option value="PANEL_PURCHASE">Solar PV Module Purchase</option>
+                                      <option value="INVERTER_PURCHASE">Solar Inverter Purchase</option>
+                                      <option value="HARDWARE_CABLES">Structure, GI & Cable Hardware</option>
+                                      <option value="LABOR_WAGES">Installation Labor & Electrician</option>
+                                    </>
+                                  )}
                                 </>
+                              )}
+                              {customCategories.length > 0 && (
+                                <optgroup label="Custom Ledgers">
+                                  {customCategories.map((c) => (
+                                    <option key={c} value={c}>{c}</option>
+                                  ))}
+                                </optgroup>
                               )}
                             </select>
                           </td>
@@ -1144,13 +1307,17 @@ export const BooksAccountingModal: React.FC<BooksAccountingModalProps> = ({
 
                 <div className="space-y-2 text-xs">
                   <div className="flex justify-between py-1 border-b border-slate-800/60">
-                    <span className="text-slate-300">Total Solar Tax Invoices Sales:</span>
+                    <span className="text-slate-300">
+                      {isSolar ? 'Total Solar Tax Invoices Sales:' : 'Total Commercial Sales Invoices:'}
+                    </span>
                     <span className="font-mono font-bold text-white">₹ {formatINR(pnlReport.salesTurnover)}</span>
                   </div>
-                  <div className="flex justify-between py-1 border-b border-slate-800/60">
-                    <span className="text-slate-300">PM Surya Ghar Subsidy Receipts:</span>
-                    <span className="font-mono font-bold text-teal-300">₹ {formatINR(pnlReport.subsidyIncome)}</span>
-                  </div>
+                  {(isSolar || pnlReport.subsidyIncome > 0) && (
+                    <div className="flex justify-between py-1 border-b border-slate-800/60">
+                      <span className="text-slate-300">PM Surya Ghar Subsidy Receipts:</span>
+                      <span className="font-mono font-bold text-teal-300">₹ {formatINR(pnlReport.subsidyIncome)}</span>
+                    </div>
+                  )}
                   <div className="flex justify-between py-1 border-b border-slate-800/60">
                     <span className="text-slate-300">Other Direct Receipts / Advances:</span>
                     <span className="font-mono font-bold text-white">₹ {formatINR(pnlReport.otherIncome)}</span>
@@ -1167,20 +1334,16 @@ export const BooksAccountingModal: React.FC<BooksAccountingModalProps> = ({
 
                 <div className="space-y-2 text-xs">
                   <div className="flex justify-between py-1 border-b border-slate-800/60">
-                    <span className="text-slate-300">Solar PV Modules (Waaree/Adani):</span>
-                    <span className="font-mono font-bold text-rose-300">₹ {formatINR(pnlReport.panelCosts)}</span>
+                    <span className="text-slate-300">
+                      {isSolar ? 'Solar Modules, Inverters & Hardware Purchases:' : 'Goods, Stock & Raw Material Purchases:'}
+                    </span>
+                    <span className="font-mono font-bold text-rose-300">₹ {formatINR(pnlReport.directMaterialCosts)}</span>
                   </div>
                   <div className="flex justify-between py-1 border-b border-slate-800/60">
-                    <span className="text-slate-300">Solar Grid-Tied Inverters (Polycab/Deye):</span>
-                    <span className="font-mono font-bold text-rose-300">₹ {formatINR(pnlReport.inverterCosts)}</span>
-                  </div>
-                  <div className="flex justify-between py-1 border-b border-slate-800/60">
-                    <span className="text-slate-300">MMS Structure, GI Channels & DC Cables:</span>
-                    <span className="font-mono font-bold text-rose-300">₹ {formatINR(pnlReport.hardwareCosts)}</span>
-                  </div>
-                  <div className="flex justify-between py-1 border-b border-slate-800/60">
-                    <span className="text-slate-300">Installation, Earthing & Commissioning Labor:</span>
-                    <span className="font-mono font-bold text-rose-300">₹ {formatINR(pnlReport.laborCosts)}</span>
+                    <span className="text-slate-300">
+                      {isSolar ? 'Installation, Earthing & Electrician Labor:' : 'Direct Labor, Production & Job Work:'}
+                    </span>
+                    <span className="font-mono font-bold text-rose-300">₹ {formatINR(pnlReport.directLaborCosts)}</span>
                   </div>
                   <div className="flex justify-between py-1.5 font-bold text-rose-400 text-sm bg-rose-950/30 px-2 rounded-lg">
                     <span>Total Direct Costs:</span>
@@ -1192,7 +1355,7 @@ export const BooksAccountingModal: React.FC<BooksAccountingModalProps> = ({
                   <span className="font-extrabold text-xs uppercase tracking-wide">Gross Profit:</span>
                   <div className="text-right">
                     <span className="text-base font-black font-mono">₹ {formatIntegerINR(pnlReport.grossProfit)}</span>
-                    <div className="text-[10px] text-purple-300">Gross Margin: {pnlReport.grossMarginPct.toFixed(1)}%</div>
+                    <div className="text-[10px] text-purple-300">Gross Margin: {(pnlReport.grossMarginPct || 0).toFixed(1)}%</div>
                   </div>
                 </div>
               </div>
@@ -1241,7 +1404,7 @@ export const BooksAccountingModal: React.FC<BooksAccountingModalProps> = ({
                     </div>
                     <div className="text-right">
                       <span className="rounded-full bg-emerald-500/20 px-2.5 py-1 text-xs font-bold text-emerald-300 border border-emerald-500/30">
-                        {pnlReport.netMarginPct.toFixed(1)}% Net Margin
+                        {(pnlReport.netMarginPct || 0).toFixed(1)}% Net Margin
                       </span>
                     </div>
                   </div>
@@ -1253,7 +1416,7 @@ export const BooksAccountingModal: React.FC<BooksAccountingModalProps> = ({
                     <Sparkles className="h-4 w-4" /> ITR Section 44AD Presumptive Taxation Scheme
                   </h5>
                   <p className="text-[11px] text-slate-300 leading-relaxed">
-                    Solar EPC small contractors with turnover under ₹3 Crores can file <b>ITR-4 (Sugam)</b> without maintaining audited balance sheets:
+                    Small business traders and contractors with annual turnover under ₹3 Crores can file <b>ITR-4 (Sugam)</b> without maintaining audited balance sheets:
                   </p>
                   <div className="grid grid-cols-2 gap-2 text-[11px] pt-1">
                     <div className="rounded-lg bg-slate-950 p-2 border border-slate-800">

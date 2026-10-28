@@ -52,6 +52,7 @@ import { Gstr1Modal } from './components/Gstr1Modal';
 import { CustomBrandingModal } from './components/CustomBrandingModal';
 import { BooksAccountingModal } from './components/BooksAccountingModal';
 import { BackupRestoreModal } from './components/BackupRestoreModal';
+import { InvoiceThemeDesignerModal } from './components/InvoiceThemeDesignerModal';
 import { OfflineIndicator } from './components/OfflineIndicator';
 import { TradeSelectionModal } from './components/TradeSelectionModal';
 import { AuthModal } from './components/AuthModal';
@@ -85,10 +86,19 @@ export default function App() {
   const [isBooksOpen, setIsBooksOpen] = useState(false);
   const [isBackupOpen, setIsBackupOpen] = useState(false);
   const [isBrandingOpen, setIsBrandingOpen] = useState(false);
+  const [isThemeDesignerOpen, setIsThemeDesignerOpen] = useState(false);
 
   // App Layout State
   const [docType, setDocType] = useState<DocType>('invoice');
-  const [templateStyle, setTemplateStyle] = useState<1 | 2 | 3>(1);
+  const [templateStyle, setTemplateStyle] = useState<1 | 2 | 3>(() => {
+    try {
+      const saved = localStorage.getItem('nb_preferred_theme');
+      if (saved === '1' || saved === '2' || saved === '3') {
+        return Number(saved) as 1 | 2 | 3;
+      }
+    } catch {}
+    return 1;
+  });
   const [activeSidebarTab, setActiveSidebarTab] = useState<'calc' | 'customer' | 'firm'>('calc');
   const [showBuyRates, setShowBuyRates] = useState(true);
   const [currency, setCurrency] = useState('₹');
@@ -138,9 +148,21 @@ export default function App() {
     localStorage.setItem('nb_book_entries', JSON.stringify(newEntries));
   };
 
-  // Branding Customization
-  const [accentColor, setAccentColor] = useState<string>('#1a3a6e');
-  const [watermarkText, setWatermarkText] = useState<string>('');
+  // Branding Customization (Persisted Globally)
+  const [accentColor, setAccentColor] = useState<string>(() => {
+    try {
+      return localStorage.getItem('nb_accent_color') || '#1a3a6e';
+    } catch {
+      return '#1a3a6e';
+    }
+  });
+  const [watermarkText, setWatermarkText] = useState<string>(() => {
+    try {
+      return localStorage.getItem('nb_watermark') || '';
+    } catch {
+      return '';
+    }
+  });
 
   // Sidebar collapse toggle and Industry selector
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(false);
@@ -876,7 +898,13 @@ export default function App() {
         activeSidebarTab={activeSidebarTab}
         onSidebarTabChange={setActiveSidebarTab}
         templateStyle={templateStyle}
-        onTemplateStyleChange={setTemplateStyle}
+        onTemplateStyleChange={(tpl) => {
+          setTemplateStyle(tpl);
+          try {
+            localStorage.setItem('nb_preferred_theme', String(tpl));
+          } catch {}
+        }}
+        onOpenThemeDesigner={() => setIsThemeDesignerOpen(true)}
         showBuyRates={showBuyRates}
         onToggleBuyRates={() => setShowBuyRates(!showBuyRates)}
         license={license}
@@ -1050,8 +1078,27 @@ export default function App() {
           onEntriesChange={handleBookEntriesChange}
           invoicesHistory={invoicesHistory}
           firmName={firm?.name || 'My Business Firm'}
+          trade={trade}
         />
       </ErrorBoundary>
+
+      {/* Global Invoice Theme Designer Studio Modal */}
+      <InvoiceThemeDesignerModal
+        isOpen={isThemeDesignerOpen}
+        onClose={() => setIsThemeDesignerOpen(false)}
+        activeTheme={templateStyle}
+        onThemeSelect={(tpl) => {
+          setTemplateStyle(tpl);
+          try {
+            localStorage.setItem('nb_preferred_theme', String(tpl));
+          } catch {}
+        }}
+        accentColor={accentColor}
+        onAccentColorChange={handleAccentColorChange}
+        watermarkText={watermarkText}
+        onWatermarkTextChange={handleWatermarkTextChange}
+        firm={firm}
+      />
 
       {/* Enterprise Feature: JSON Disaster Backup, Restore, Excel CSV & Claude Source Export */}
       <BackupRestoreModal

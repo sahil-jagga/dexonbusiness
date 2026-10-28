@@ -172,9 +172,13 @@ export type PaymentMode = 'BANK' | 'CASH' | 'UPI' | 'CHEQUE';
 
 export type BookCategory =
   | 'SALES_INVOICE'
-  | 'SOLAR_SUBSIDY'
+  | 'DIRECT_INCOME'
   | 'CUSTOMER_ADVANCE'
+  | 'INTEREST_INCOME'
+  | 'COMMISSION_INCOME'
   | 'OTHER_INCOME'
+  | 'SOLAR_SUBSIDY'
+  | 'GOODS_PURCHASE'
   | 'PANEL_PURCHASE'
   | 'INVERTER_PURCHASE'
   | 'HARDWARE_CABLES'
@@ -183,9 +187,16 @@ export type BookCategory =
   | 'OFFICE_RENT'
   | 'SALARY_STAFF'
   | 'BANK_CHARGES'
+  | 'ELECTRICITY_UTILITY'
+  | 'MARKETING_ADS'
+  | 'OFFICE_EXPENSE'
+  | 'TEA_REFRESHMENT'
+  | 'TRAVEL_CONVEYANCE'
+  | 'REPAIR_MAINTENANCE'
   | 'GST_TAX_PAYMENT'
   | 'OWNER_DRAWING'
-  | 'MISC_EXPENSE';
+  | 'MISC_EXPENSE'
+  | (string & {});
 
 export interface BookEntry {
   id: string;

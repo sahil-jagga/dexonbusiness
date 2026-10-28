@@ -76,6 +76,7 @@ interface HeaderNavProps {
   onCurrencyChange?: () => void;
   country?: CountryCode;
   onCountryChange?: (c: CountryCode) => void;
+  onOpenThemeDesigner?: () => void;
 }
 
 export const HeaderNav: React.FC<HeaderNavProps> = ({
@@ -116,6 +117,7 @@ export const HeaderNav: React.FC<HeaderNavProps> = ({
   onCurrencyChange,
   country = 'IN',
   onCountryChange,
+  onOpenThemeDesigner,
 }) => {
   const isBusiness = license?.plan === 'Business';
   const isPro = license?.plan === 'Pro';
@@ -651,8 +653,8 @@ export const HeaderNav: React.FC<HeaderNavProps> = ({
 
           <div className="h-5 w-px bg-slate-800 mx-1 hidden lg:block" />
 
-          {/* Theme Selector */}
-          <div className="flex items-center gap-1">
+          {/* Theme Selector & Designer */}
+          <div className="flex items-center gap-1.5">
             <span className="text-[10px] text-slate-400 font-semibold hidden sm:inline">Theme:</span>
             <div className="flex rounded-md border border-slate-800 bg-slate-950 p-0.5 text-[11px]">
               <button
@@ -660,26 +662,40 @@ export const HeaderNav: React.FC<HeaderNavProps> = ({
                 className={`rounded px-2 py-0.5 font-bold transition ${
                   templateStyle === 1 ? 'bg-amber-500 text-slate-950' : 'text-slate-400 hover:text-white'
                 }`}
+                title="Minimalist Classic (Clean White)"
               >
-                Standard
+                Minimal
               </button>
               <button
                 onClick={() => onTemplateStyleChange(2)}
                 className={`rounded px-2 py-0.5 font-bold transition ${
                   templateStyle === 2 ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'
                 }`}
+                title="Modern Corporate (Executive Blue)"
               >
-                Blue
+                Modern
               </button>
               <button
                 onClick={() => onTemplateStyleChange(3)}
                 className={`rounded px-2 py-0.5 font-bold transition ${
                   templateStyle === 3 ? 'bg-slate-700 text-amber-300' : 'text-slate-400 hover:text-white'
                 }`}
+                title="Professional Executive (Midnight Dark & Gold)"
               >
-                Dark
+                Professional
               </button>
             </div>
+
+            {onOpenThemeDesigner && (
+              <button
+                onClick={onOpenThemeDesigner}
+                className="flex items-center gap-1 rounded-md border border-amber-500/40 bg-amber-950/30 px-2 py-1 text-[11px] font-bold text-amber-300 hover:bg-amber-900/50 hover:text-white transition shadow-sm"
+                title="Open Invoice Theme Designer (Preview & Save Global Template)"
+              >
+                <Palette className="h-3 w-3 text-amber-400" />
+                <span className="hidden xl:inline">Theme Designer</span>
+              </button>
+            )}
           </div>
 
           {/* WhatsApp Share Button */}
