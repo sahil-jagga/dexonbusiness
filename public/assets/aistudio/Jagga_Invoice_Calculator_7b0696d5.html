@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Jagga Solar — Invoice + Calculator</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Arial,sans-serif;font-size:13px;background:#f0f2f5;color:#222}
+.app{display:flex;gap:0;min-height:100vh}
+
+/* ===== SIDEBAR ===== */
+.sidebar{width:290px;background:#0d1f35;color:#fff;padding:14px;flex-shrink:0;overflow-y:auto}
+.sidebar h2{color:#f0c040;font-size:13px;margin-bottom:10px;letter-spacing:1px}
+.sidebar h3{color:#aabbcc;font-size:10px;margin:12px 0 5px;text-transform:uppercase;letter-spacing:1px}
+.field{margin-bottom:7px}
+.field label{display:block;font-size:10px;color:#aabbcc;margin-bottom:2px}
+.field input,.field select,.field textarea{width:100%;padding:5px 7px;background:#1a3a5c;border:1px solid #2a4a7c;border-radius:4px;color:#fff;font-size:12px}
+.field input::placeholder{color:#667788}
+
+/* TARGET BOX */
+.target-box{background:#1a3a5c;border:2px solid #f0c040;border-radius:8px;padding:10px;margin-bottom:12px}
+.target-box label{font-size:11px;color:#f0c040;font-weight:bold;display:block;margin-bottom:4px}
+.target-box input{width:100%;background:#0d1f35;border:1px solid #f0c040;border-radius:4px;color:#f0c040;font-size:18px;font-weight:bold;padding:6px 10px}
+.target-box .target-info{font-size:10px;color:#aabbcc;margin-top:5px;line-height:1.6}
+.target-box .profit-line{color:#4caf7d;font-weight:bold}
+
+/* MODE SWITCH */
+.mode-switch{display:flex;gap:4px;margin-bottom:12px}
+.mode-btn{flex:1;padding:7px;border:none;border-radius:4px;cursor:pointer;font-size:11px;font-weight:bold}
+.mode-btn.active{background:#f0c040;color:#0d1f35}
+.mode-btn.inactive{background:#1a3a5c;color:#aabbcc}
+
+/* RATIO BADGE */
+.ratio-badge{background:#0d1f35;border:1px solid #2a4a7c;border-radius:6px;padding:8px;margin-bottom:10px}
+.ratio-badge .rtitle{font-size:10px;color:#aabbcc;margin-bottom:5px}
+.ratio-row{display:flex;gap:8px;align-items:center;margin-bottom:4px}
+.ritem{text-align:center;font-size:11px}
+.ritem .rv{font-size:14px;font-weight:bold}
+.ritem .rp{font-size:10px}
+.rbar{flex:1;height:14px;background:#1a3a5c;border-radius:7px;overflow:hidden;display:flex}
+.rbar5{height:100%;background:#1a7a4a;transition:width 0.3s}
+.rbar18{height:100%;background:#cc6600;transition:width 0.3s}
+.ratio-alert{font-size:10px;padding:4px 6px;border-radius:4px;margin-top:4px}
+.ratio-ok{background:rgba(76,175,125,0.15);color:#4caf7d}
+.ratio-warn{background:rgba(245,166,35,0.15);color:#f0c040}
+
+/* STOCK */
+.stock-item{background:#1a3a5c;border-radius:4px;padding:4px 7px;margin-bottom:2px;display:flex;justify-content:space-between;align-items:center;font-size:10px}
+.stock-item .sname{color:#fff;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.stock-item .shsn{color:#f0c040;font-size:9px;margin:0 5px}
+.stock-item .sgst{color:#66cc88;font-size:9px}
+.stock-item .sdel{background:none;border:none;color:#cc4444;cursor:pointer;font-size:13px;padding:0 2px}
+.add-stock{display:grid;grid-template-columns:1fr 75px 45px;gap:3px;margin-top:5px}
+.add-stock input{padding:4px;background:#1a3a5c;border:1px solid #2a4a7c;border-radius:3px;color:#fff;font-size:11px}
+
+.btn{padding:6px 12px;border:none;border-radius:4px;cursor:pointer;font-size:12px;font-weight:bold}
+.btn-primary{background:#f0c040;color:#0d1f35}
+.btn-danger{background:#cc3333;color:#fff;font-size:10px;padding:2px 6px}
+.btn-green{background:#1a7a4a;color:#fff}
+.btn-blue{background:#1a4a8c;color:#fff}
+.btn-print{background:#0d1f35;color:#f0c040;border:2px solid #f0c040;padding:8px 20px;font-size:13px}
+
+/* ===== MAIN ===== */
+.main{flex:1;padding:16px;overflow-y:auto}
+.toolbar{display:flex;gap:7px;margin-bottom:10px;flex-wrap:wrap;align-items:center}
+.toolbar h3{font-size:13px;font-weight:bold;color:#0d1f35;flex:1}
+
+/* BUYING MODE BANNER */
+.buying-banner{background:#fff3cd;border:1px solid #f0c040;border-radius:6px;padding:8px 12px;margin-bottom:10px;font-size:11px;color:#7a6000;display:none}
+
+/* Invoice header */
+.invoice-header{background:#0d1f35;color:#fff;padding:14px 18px;border-radius:8px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:flex-start}
+.inv-firm{font-size:17px;font-weight:bold;color:#f0c040}
+.inv-sub{font-size:10px;color:#aabbcc;margin-top:2px}
+.inv-right{text-align:right;font-size:10px;color:#aabbcc;line-height:1.8}
+.cust-box{display:flex;gap:8px;margin-bottom:8px}
+.cust-panel{flex:1;border:1px solid #ccc;border-radius:5px;padding:7px;background:#fff}
+.cust-panel h4{font-size:10px;font-weight:bold;color:#0d1f35;border-bottom:1px solid #eee;padding-bottom:2px;margin-bottom:4px}
+.meta-row{background:#fff;border-radius:5px;padding:6px 10px;margin-bottom:7px;display:flex;gap:14px;font-size:11px;box-shadow:0 1px 4px rgba(0,0,0,0.07);flex-wrap:wrap}
+
+/* ITEMS TABLE */
+.items-section{background:#fff;border-radius:8px;padding:10px;margin-bottom:8px;box-shadow:0 1px 4px rgba(0,0,0,0.07)}
+table.items{width:100%;border-collapse:collapse;font-size:10.5px}
+table.items th{background:#1a3a5c;color:#fff;padding:4px 3px;text-align:center;border:1px solid #ccc}
+table.items td{border:1px solid #ddd;padding:2px 3px;vertical-align:middle}
+table.items td input{width:100%;border:none;outline:none;background:transparent;font-size:10.5px;color:#222}
+table.items td select{width:100%;border:none;outline:none;background:transparent;font-size:10.5px}
+.desc-main{width:100%;border:none;outline:none;background:transparent;font-size:10.5px;min-width:160px}
+.sn-cell{width:24px;text-align:center;color:#666}
+.hsn-cell{width:66px}
+.qty-cell{width:40px}
+.unit-cell{width:48px}
+.rate-cell{width:70px}
+/* BUYING cols */
+.buy-cell{width:68px;text-align:right;background:#fff9e6;color:#7a5000;font-weight:bold;font-size:10px}
+/* SELLING cols */
+.cgst-cell,.sgst-cell{width:58px;background:#f9fff9;text-align:right;color:#1a7a4a;font-weight:bold;font-size:10px}
+.amt-cell{width:78px;text-align:right;font-weight:bold;background:#f5f5ff}
+.gst-cell{width:38px;text-align:center}
+.del-cell{width:24px;text-align:center}
+.total-row td{background:#eee;font-weight:bold;text-align:right}
+.grand-row td{background:#0d1f35;color:#fff;font-weight:bold;text-align:right}
+.gst-summary{display:flex;justify-content:flex-end;margin-top:7px}
+.gst-table{border-collapse:collapse;font-size:10.5px;min-width:310px}
+.gst-table th{background:#1a3a5c;color:#fff;padding:3px 6px;border:1px solid #ccc}
+.gst-table td{border:1px solid #ddd;padding:2px 6px;text-align:right}
+.gst-table .gtr td{background:#eee;font-weight:bold}
+.inv-footer{background:#fff;border-radius:8px;padding:10px;box-shadow:0 1px 4px rgba(0,0,0,0.07);margin-bottom:10px}
+.bank-box{font-size:10px;color:#444;border:1px solid #ddd;padding:5px;border-radius:4px;margin-bottom:5px}
+.sig-row{display:flex;justify-content:space-between;margin-top:12px}
+.sig-block{text-align:center;font-size:10px;color:#444}
+.sig-block .sig-line{border-top:1px solid #000;width:170px;margin:16px auto 3px}
+
+/* BUYING RATE extra col header highlight */
+.buy-header{background:#7a5000!important}
+
+/* Sell rate cell highlight */
+.sell-rate-cell{background:#e8f5e9!important;color:#1a7a4a!important;font-weight:bold}
+
+/* serial textarea */
+.serial-ta{width:100%;font-size:9.5px;border:1px solid #ddd;border-radius:2px;padding:2px 3px;resize:none;color:#444;font-family:monospace;background:#fffef0;margin-top:2px;overflow:hidden;min-height:16px}
+
+@media print{
+  .sidebar,.toolbar,.btn,.btn-print,.del-cell,.buying-banner,.buy-cell,.buy-header{display:none!important}
+  .main{padding:0}
+  body{background:#fff}
+  .items-section,.inv-footer,.cust-box{box-shadow:none}
+  table.items td select{-webkit-appearance:none;-moz-appearance:none;appearance:none;background:transparent!important;border:none!important}
+  .serial-ta:placeholder-shown{display:none!important}
+}
+</style>
+</head>
+<body>
+<div class="app">
+
+<!-- ===== SIDEBAR ===== -->
+<div class="sidebar">
+  <h2>☀ JAGGA SOLAR</h2>
+
+  <!-- MODE -->
+  <div class="mode-switch">
+    <button class="mode-btn active" id="modeCalcBtn" onclick="setMode('calc')">🧮 Calculator Mode</button>
+    <button class="mode-btn inactive" id="modeInvBtn" onclick="setMode('invoice')">📄 Invoice Mode</button>
+  </div>
+
+  <!-- TARGET (Calculator Mode) -->
+  <div id="calcPanel">
+    <div class="target-box">
+      <label>🎯 Bill Target (Rs.)</label>
+      <input type="number" id="targetPrice" value="200000" oninput="calc()">
+      <div class="target-info">
+        <div>Buying (with GST): <span id="sBuyGST" style="color:#fff">₹0</span></div>
+        <div class="profit-line">Profit: <span id="sProfit">₹0</span> (<span id="sProfitPct">0%</span>)</div>
+      </div>
+    </div>
+
+    <!-- RATIO -->
+    <div class="ratio-badge">
+      <div class="rtitle">GST Ratio (Selling mein)</div>
+      <div class="ratio-row">
+        <div class="ritem"><div class="rv" id="r5" style="color:#4caf7d">₹0</div><div class="rp" id="r5p">0%</div><div style="font-size:9px;color:#aabbcc">5% GST</div></div>
+        <div class="rbar"><div class="rbar5" id="rbar5" style="width:0%"></div><div class="rbar18" id="rbar18" style="width:0%"></div></div>
+        <div class="ritem"><div class="rv" id="r18" style="color:#f0c040">₹0</div><div class="rp" id="r18p">0%</div><div style="font-size:9px;color:#aabbcc">18% GST</div></div>
+      </div>
+      <div class="ratio-alert ratio-warn" id="ratioAlert">Items add karo</div>
+    </div>
+  </div>
+
+  <!-- INVOICE META (Invoice Mode) -->
+  <div id="invPanel" style="display:none">
+    <h3>Invoice Details</h3>
+    <div class="field"><label>Invoice No.</label><input id="inv-no" placeholder="JE/26-27/001" oninput="applyMeta()"/></div>
+    <div class="field"><label>Date</label><input type="date" id="inv-date" onchange="applyMeta()"/></div>
+    <div class="field"><label>Place of Supply</label><input id="inv-place" value="Rajasthan (08)" oninput="applyMeta()"/></div>
+    <div class="field"><label>E-Way Bill No.</label><input id="inv-eway" placeholder="Optional" oninput="applyMeta()"/></div>
+
+    <h3>Customer Details</h3>
+    <div class="field"><label>Name</label><input id="cust-name" placeholder="Customer name"/></div>
+    <div class="field"><label>S/O or W/O</label><input id="cust-rel" placeholder="S/O Ramesh Kumar"/></div>
+    <div class="field"><label>Address</label><textarea id="cust-addr" rows="2" placeholder="Full address"></textarea></div>
+    <div class="field"><label>Mobile</label><input id="cust-mobile" placeholder="9876543210"/></div>
+    <div class="field"><label>Aadhaar No.</label><input id="cust-aadhar" placeholder="XXXX XXXX XXXX"/></div>
+    <div class="field"><label>Application No.</label><input id="cust-app" placeholder="PM Surya Ghar App No."/></div>
+    <h3>B2B Customer (optional)</h3>
+    <div class="field"><label>Firm Name</label><input id="b2b-firm" placeholder="Company name"/></div>
+    <div class="field"><label>GSTIN</label><input id="b2b-gstin" placeholder="GST Number"/></div>
+    <button class="btn btn-primary" style="width:100%;margin-top:8px" onclick="applyCustomer()">✅ Apply Customer</button>
+  </div>
+
+  <!-- STOCK ITEMS -->
+  <h3>Stock Items</h3>
+  <div id="stock-list"></div>
+  <div class="add-stock">
+    <input id="ns-name" placeholder="Item name"/>
+    <input id="ns-hsn" placeholder="HSN"/>
+    <input id="ns-gst" placeholder="GST%" type="number"/>
+  </div>
+  <button class="btn btn-primary" style="width:100%;margin-top:5px;font-size:11px" onclick="addStock()">+ Add to Stock</button>
+  <button class="btn btn-blue" style="width:100%;margin-top:4px;font-size:11px" onclick="saveStocks()">💾 Save Stocks</button>
+</div>
+
+<!-- ===== MAIN ===== -->
+<div class="main">
+  <div class="toolbar">
+    <h3 id="toolbarTitle">🧮 Calculator + Invoice</h3>
+    <button class="btn btn-green" onclick="addRow()">+ Add Row</button>
+    <button class="btn btn-blue" onclick="clearItems()">🗑 Clear</button>
+    <button class="btn btn-print" onclick="window.print()">🖨 Print / PDF</button>
+  </div>
+
+  <!-- BUYING MODE BANNER -->
+  <div class="buying-banner" id="buyingBanner">
+    🧮 <b>Calculator Mode:</b> Buying Rate daalo → Selling Rate auto-calculate hogi target ke hisaab se. Print se pehle Invoice Mode mein switch karo.
+  </div>
+
+  <!-- INVOICE HEADER -->
+  <div class="invoice-header">
+    <div>
+      <div class="inv-firm">JAGGA ENTERPRISES & CO.</div>
+      <div class="inv-sub">Solar Energy Solutions | PM Surya Ghar Empanelled Vendor</div>
+      <div class="inv-sub">Vinoba Basti 390B, Near TLT Coaching Centre, Sri Ganganagar, Rajasthan - 335001</div>
+      <div class="inv-sub">Tel.: 94298-42000 | 94283-42000 | GSTIN: 08ERPPK7078L1ZS</div>
+    </div>
+    <div class="inv-right">
+      <div style="color:#f0c040;font-size:12px;font-weight:bold">TAX INVOICE</div>
+      <div>Original Copy</div>
+    </div>
+  </div>
+
+  <div class="meta-row">
+    <span><b>Invoice No.:</b> <span id="disp-invno">JE/26-27/</span></span>
+    <span><b>Date:</b> <span id="disp-date">-</span></span>
+    <span><b>E-Way Bill:</b> <span id="disp-eway">-</span></span>
+    <span><b>Place of Supply:</b> <span id="disp-place">Rajasthan (08)</span></span>
+    <span><b>Reverse Charge:</b> N</span>
+  </div>
+
+  <div class="cust-box">
+    <div class="cust-panel"><h4>BILLED TO</h4><div id="billed-to" style="font-size:11px;line-height:1.8;color:#333">—</div></div>
+    <div class="cust-panel"><h4>SHIPPED TO</h4><div id="shipped-to" style="font-size:11px;line-height:1.8;color:#333">—</div></div>
+  </div>
+
+  <!-- ITEMS TABLE -->
+  <div class="items-section">
+    <table class="items">
+      <thead>
+        <tr>
+          <th class="sn-cell">S.N.</th>
+          <th class="desc-cell">Description of Goods</th>
+          <th class="hsn-cell">HSN</th>
+          <th class="gst-cell">GST%</th>
+          <th class="qty-cell">Qty</th>
+          <th class="unit-cell">Unit</th>
+          <th class="rate-cell buy-header" id="buyRateHeader">Buying Rate(₹)</th>
+          <th class="rate-cell" id="sellRateHeader">Selling Rate(₹)</th>
+          <th class="cgst-cell">CGST(₹)</th>
+          <th class="sgst-cell">SGST(₹)</th>
+          <th class="amt-cell">Total(₹)</th>
+          <th class="del-cell"></th>
+        </tr>
+      </thead>
+      <tbody id="items-body"></tbody>
+      <tfoot>
+        <tr class="total-row">
+          <td colspan="7"></td>
+          <td style="text-align:right;padding:4px">Taxable Total</td>
+          <td id="tot-cgst" style="text-align:right;padding:4px;background:#e8f8e8;color:#1a7a4a"></td>
+          <td id="tot-sgst" style="text-align:right;padding:4px;background:#e8f8e8;color:#1a7a4a"></td>
+          <td id="tot-subtotal" style="text-align:right;padding:4px"></td>
+          <td></td>
+        </tr>
+        <tr>
+          <td colspan="10" style="text-align:right;padding:2px 4px;font-size:10px">Add: CGST</td>
+          <td id="tot-cgst2" style="text-align:right;padding:2px 4px;color:#1a7a4a;font-weight:bold"></td>
+          <td></td>
+        </tr>
+        <tr>
+          <td colspan="10" style="text-align:right;padding:2px 4px;font-size:10px">Add: SGST</td>
+          <td id="tot-sgst2" style="text-align:right;padding:2px 4px;color:#1a7a4a;font-weight:bold"></td>
+          <td></td>
+        </tr>
+        <tr>
+          <td colspan="10" style="text-align:right;padding:2px 4px;font-size:10px">Rounded Off</td>
+          <td id="tot-round" style="text-align:right;padding:2px 4px;color:#888"></td>
+          <td></td>
+        </tr>
+        <tr class="grand-row">
+          <td colspan="7" style="padding:5px 4px;font-size:10px" id="amt-words">-</td>
+          <td style="padding:5px 4px">Grand Total</td>
+          <td colspan="2" style="padding:5px 4px;text-align:center;font-size:13px;color:#f0c040" id="tot-grand"></td>
+          <td></td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+
+  <div class="gst-summary">
+    <table class="gst-table">
+      <tr><th>Tax Rate</th><th>Taxable Amt.</th><th>CGST</th><th>SGST</th><th>Total Tax</th></tr>
+      <tbody id="gst-body"></tbody>
+      <tr class="gtr"><td><b>Total</b></td><td id="gs-tax"></td><td id="gs-cgst"></td><td id="gs-sgst"></td><td id="gs-tot"></td></tr>
+    </table>
+  </div>
+
+  <div class="inv-footer">
+    <div class="bank-box"><b>Bank:</b> PUNJAB NATIONAL BANK &nbsp;|&nbsp; <b>A/C:</b> 6156002100006195 &nbsp;|&nbsp; <b>IFSC:</b> PUNB0615600 &nbsp;|&nbsp; <b>Branch:</b> Sadhuali Cantt, Sri Ganganagar</div>
+    <div style="border:1px solid #ddd;padding:4px;border-radius:3px;font-size:9.5px;text-align:center;margin-bottom:5px"><b>Declaration:</b> All solar product warranty is provided by respective manufacturer company.</div>
+    <div style="font-size:9.5px;color:#555;margin-bottom:5px"><b>T&C:</b> E.&O.E. &nbsp; 1. Goods once sold will not be taken back. &nbsp; 2. Subject to Sri Ganganagar Jurisdiction only.</div>
+    <div class="sig-row">
+      <div class="sig-block"><div class="sig-line"></div>Receiver's Signature</div>
+      <div class="sig-block"><div class="sig-line"></div><b>For Jagga Enterprises & Co.</b><br>Authorised Signatory</div>
+    </div>
+  </div>
+</div>
+</div>
+
+<script>
+// ===== STOCKS =====
+const DEFAULT_STOCKS=[
+  {name:"Solar PV Module DCR (ALMM Listed)",hsn:"85414300",gst:5},
+  {name:"Solar PV Module NDCR",hsn:"85414300",gst:5},
+  {name:"Solar Inverter",hsn:"85044090",gst:5},
+  {name:"Module Mounting Structure GI C-Channel (HDG)",hsn:"73089030",gst:18},
+  {name:"Structure Slotted Channel / Purlin (HDG)",hsn:"73089030",gst:18},
+  {name:"Base Plate (GI)",hsn:"73089030",gst:18},
+  {name:"Mid Clamp / End Clamp (Aluminium)",hsn:"73089030",gst:18},
+  {name:"AC Wire Multistrand (KEI/Polycab)",hsn:"85446020",gst:18},
+  {name:"DC Solar Cable 4mm",hsn:"85446020",gst:18},
+  {name:"Lightning Arrester (LA)",hsn:"85354010",gst:18},
+  {name:"Earthing Electrode / Copper Bonded Rod",hsn:"85359090",gst:18},
+  {name:"Earthing Chemical Bag",hsn:"250610",gst:18},
+  {name:"ACDB Box",hsn:"85371000",gst:18},
+  {name:"DCDB Box",hsn:"85371000",gst:18},
+  {name:"Indo Meter Box",hsn:"85371000",gst:18},
+  {name:"PVC Conduit / Tray / Shedal",hsn:"392690",gst:18},
+  {name:"Installation & Commissioning Charges",hsn:"9954",gst:18},
+  {name:"Civil Work / Cement & Material",hsn:"99543",gst:18},
+];
+let stocks=JSON.parse(localStorage.getItem('jagga_stocks4')||'null')||[...DEFAULT_STOCKS];
+function saveStocks(){localStorage.setItem('jagga_stocks4',JSON.stringify(stocks));alert('✅ Stocks saved!');}
+function addStock(){
+  const n=document.getElementById('ns-name').value.trim();
+  const h=document.getElementById('ns-hsn').value.trim();
+  const g=parseFloat(document.getElementById('ns-gst').value)||18;
+  if(!n)return alert('Item name required!');
+  stocks.push({name:n,hsn:h,gst:g});
+  document.getElementById('ns-name').value='';
+  document.getElementById('ns-hsn').value='';
+  document.getElementById('ns-gst').value='';
+  renderStocks();saveStocks();
+}
+function deleteStock(i){if(confirm('Delete?')){stocks.splice(i,1);renderStocks();saveStocks();}}
+function renderStocks(){
+  document.getElementById('stock-list').innerHTML=stocks.map((s,i)=>`
+    <div class="stock-item">
+      <span class="sname" title="${s.name}">${s.name.length>25?s.name.substr(0,25)+'…':s.name}</span>
+      <span class="shsn">${s.hsn}</span>
+      <span class="sgst">${s.gst}%</span>
+      <button class="sdel" onclick="deleteStock(${i})">×</button>
+    </div>`).join('');
+}
+
+// ===== MODE =====
+let currentMode='calc'; // 'calc' or 'invoice'
+function setMode(m){
+  currentMode=m;
+  document.getElementById('modeCalcBtn').className='mode-btn '+(m==='calc'?'active':'inactive');
+  document.getElementById('modeInvBtn').className='mode-btn '+(m==='invoice'?'active':'inactive');
+  document.getElementById('calcPanel').style.display=m==='calc'?'':'none';
+  document.getElementById('invPanel').style.display=m==='invoice'?'':'none';
+  document.getElementById('buyingBanner').style.display=m==='calc'?'block':'none';
+  document.getElementById('buyRateHeader').style.display=m==='calc'?'':'none';
+  document.getElementById('sellRateHeader').textContent=m==='calc'?'Selling Rate(₹)':'Rate(₹)';
+  // Show/hide buying cols in rows
+  document.querySelectorAll('.buy-col').forEach(el=>el.style.display=m==='calc'?'':'none');
+  document.getElementById('toolbarTitle').textContent=m==='calc'?'🧮 Calculator + Invoice':'📄 Tax Invoice';
+  calc();
+}
+
+// ===== ROWS =====
+let rowCount=0;
+function addRow(){
+  rowCount++;
+  const tbody=document.getElementById('items-body');
+  const rid=rowCount;
+  const dlId='dl-'+rid;
+  const opts=stocks.map(s=>`<option value="${s.name}" data-hsn="${s.hsn}" data-gst="${s.gst}">`).join('');
+  const tr=document.createElement('tr');
+  tr.id='row-'+rid;
+  tr.innerHTML=`
+    <td class="sn-cell">${tbody.rows.length+1}</td>
+    <td class="desc-cell">
+      <datalist id="${dlId}">${opts}</datalist>
+      <input type="text" list="${dlId}" class="desc-main" placeholder="Select or type item..."
+        onchange="onDesc(this,${rid})" oninput="onDesc(this,${rid})"/>
+      <textarea id="serial-${rid}" class="serial-ta" placeholder="Serial no. / extra detail..." oninput="autoResize(this)"></textarea>
+    </td>
+    <td class="hsn-cell"><input type="text" id="hsn-${rid}" placeholder="HSN"/></td>
+    <td class="gst-cell">
+      <select id="gst-${rid}" onchange="calc()">
+        <option value="5">5%</option>
+        <option value="18" selected>18%</option>
+        <option value="12">12%</option>
+        <option value="0">0%</option>
+      </select>
+    </td>
+    <td class="qty-cell"><input type="number" id="qty-${rid}" value="1" min="0" oninput="calc()"/></td>
+    <td class="unit-cell">
+      <select id="unit-${rid}">
+        <option>Pcs.</option><option>NOS</option><option>Set</option>
+        <option>Mtr.</option><option>Kg.</option><option>Job</option><option>Ltr.</option>
+      </select>
+    </td>
+    <td class="buy-col" id="buy-cell-${rid}" style="display:${currentMode==='calc'?'':'none'}">
+      <input type="number" class="buy-cell" id="buy-${rid}" value="0" min="0"
+        placeholder="Buy rate" oninput="calc()" style="width:100%;border:none;outline:none;background:transparent;font-size:10.5px;color:#7a5000;font-weight:bold"/>
+    </td>
+    <td class="sell-rate-cell" id="sell-cell-${rid}">
+      <input type="number" id="rate-${rid}" value="0" min="0" oninput="calc()"
+        style="width:100%;border:none;outline:none;background:transparent;font-size:10.5px;color:#1a7a4a;font-weight:bold"/>
+    </td>
+    <td class="cgst-cell" id="cgst-${rid}">0.00</td>
+    <td class="sgst-cell" id="sgst-${rid}">0.00</td>
+    <td class="amt-cell" id="amt-${rid}">0.00</td>
+    <td class="del-cell"><button class="btn btn-danger" onclick="delRow(${rid})">×</button></td>`;
+  tbody.appendChild(tr);
+  renum();
+}
+
+function autoResize(el){el.style.height='auto';el.style.height=el.scrollHeight+'px';}
+function onDesc(input,rid){
+  const match=stocks.find(s=>s.name===input.value);
+  if(match){
+    document.getElementById('hsn-'+rid).value=match.hsn;
+    document.getElementById('gst-'+rid).value=String(match.gst);
+  }
+  calc();
+}
+function delRow(rid){
+  const r=document.getElementById('row-'+rid);
+  if(r)r.remove();
+  renum();calc();
+}
+function renum(){
+  document.querySelectorAll('#items-body tr').forEach((r,i)=>{
+    const s=r.querySelector('.sn-cell');
+    if(s)s.textContent=i+1;
+  });
+}
+function clearItems(){
+  if(confirm('Clear all items?')){document.getElementById('items-body').innerHTML='';rowCount=0;calc();}
+}
+
+// ===== CALC =====
+function fmt(n){return n.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g,',');}
+function fmtI(n){return Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g,',');}
+
+function calc(){
+  const target=parseFloat(document.getElementById('targetPrice')?.value)||0;
+  const rows=document.querySelectorAll('#items-body tr');
+
+  // Step 1: Get all buying totals (with GST) for proportion
+  let totalBuyWithGST=0;
+  const rowData=[];
+  rows.forEach(row=>{
+    const rid=row.id.replace('row-','');
+    const qty=parseFloat(document.getElementById('qty-'+rid)?.value)||0;
+    const buyRate=parseFloat(document.getElementById('buy-'+rid)?.value)||0;
+    const gst=parseFloat(document.getElementById('gst-'+rid)?.value)||0;
+    const buyBase=qty*buyRate;
+    const buyGST=buyBase*(1+gst/100);
+    totalBuyWithGST+=buyGST;
+    rowData.push({rid,qty,buyRate,buyBase,buyGST,gst});
+  });
+
+  // Step 2: If calculator mode & target set → auto-set sell rates
+  if(currentMode==='calc' && target>0 && totalBuyWithGST>0){
+    rowData.forEach(({rid,qty,buyGST,gst})=>{
+      const weight=buyGST/totalBuyWithGST;
+      const rowSellTotal=target*weight; // this row's share of total selling with GST
+      const rowSellBase=rowSellTotal/(1+gst/100); // taxable
+      const sellRate=qty>0?rowSellBase/qty:0;
+      const rateEl=document.getElementById('rate-'+rid);
+      if(rateEl) rateEl.value=sellRate.toFixed(2);
+    });
+  }
+
+  // Step 3: Calculate invoice from selling rates
+  let taxable=0,tcgst=0,tsgst=0,buckets={},f5=0,f18=0;
+  let totalBuyBase=0;
+  rows.forEach(row=>{
+    const rid=row.id.replace('row-','');
+    const qty=parseFloat(document.getElementById('qty-'+rid)?.value)||0;
+    const rate=parseFloat(document.getElementById('rate-'+rid)?.value)||0;
+    const buyRate=parseFloat(document.getElementById('buy-'+rid)?.value)||0;
+    const gst=parseFloat(document.getElementById('gst-'+rid)?.value)||0;
+    const line=qty*rate;
+    const cgst=line*(gst/2)/100;
+    const sgst=line*(gst/2)/100;
+    const tot=line+cgst+sgst;
+    if(document.getElementById('cgst-'+rid)){
+      document.getElementById('cgst-'+rid).textContent=fmt(cgst);
+      document.getElementById('sgst-'+rid).textContent=fmt(sgst);
+      document.getElementById('amt-'+rid).textContent=fmt(tot);
+    }
+    taxable+=line;tcgst+=cgst;tsgst+=sgst;
+    totalBuyBase+=qty*buyRate;
+    if(!buckets[gst])buckets[gst]={tax:0,cgst:0,sgst:0};
+    buckets[gst].tax+=line;buckets[gst].cgst+=cgst;buckets[gst].sgst+=sgst;
+    if(gst==5)f5+=tot;else if(gst==18)f18+=tot;
+  });
+
+  const raw=taxable+tcgst+tsgst;
+  const grand=Math.round(raw);
+  const ro=grand-raw;
+
+  document.getElementById('tot-subtotal').textContent=fmt(taxable);
+  document.getElementById('tot-cgst').textContent=fmt(tcgst);
+  document.getElementById('tot-sgst').textContent=fmt(tsgst);
+  document.getElementById('tot-cgst2').textContent=fmt(tcgst);
+  document.getElementById('tot-sgst2').textContent=fmt(tsgst);
+  document.getElementById('tot-round').textContent=fmt(ro);
+  document.getElementById('tot-grand').textContent='₹ '+fmtI(grand);
+  document.getElementById('amt-words').textContent=toWords(grand)+' Only';
+  document.getElementById('gst-body').innerHTML=Object.entries(buckets).sort((a,b)=>a[0]-b[0]).map(([r,v])=>
+    `<tr><td>${r}%</td><td>${fmt(v.tax)}</td><td>${fmt(v.cgst)}</td><td>${fmt(v.sgst)}</td><td>${fmt(v.cgst+v.sgst)}</td></tr>`
+  ).join('');
+  document.getElementById('gs-tax').textContent=fmt(taxable);
+  document.getElementById('gs-cgst').textContent=fmt(tcgst);
+  document.getElementById('gs-sgst').textContent=fmt(tsgst);
+  document.getElementById('gs-tot').textContent=fmt(tcgst+tsgst);
+
+  // Ratio bar
+  const gt=f5+f18;
+  const p5=gt>0?f5/gt*100:0,p18=gt>0?f18/gt*100:0;
+  if(document.getElementById('r5')){
+    document.getElementById('r5').textContent='₹'+fmtI(f5);
+    document.getElementById('r18').textContent='₹'+fmtI(f18);
+    document.getElementById('r5p').textContent=p5.toFixed(1)+'%';
+    document.getElementById('r18p').textContent=p18.toFixed(1)+'%';
+    document.getElementById('rbar5').style.width=p5+'%';
+    document.getElementById('rbar18').style.width=p18+'%';
+  }
+
+  // Sidebar summary
+  const profit=grand-totalBuyWithGST;
+  const profitPct=totalBuyWithGST>0?((profit/totalBuyWithGST)*100).toFixed(1):0;
+  if(document.getElementById('sBuyGST')){
+    document.getElementById('sBuyGST').textContent='₹'+fmtI(totalBuyWithGST);
+    document.getElementById('sProfit').textContent='₹'+fmtI(profit);
+    document.getElementById('sProfitPct').textContent=profitPct+'%';
+  }
+
+  // Ratio alert
+  const al=document.getElementById('ratioAlert');
+  if(al){
+    if(rows.length===0){al.className='ratio-alert ratio-warn';al.textContent='Items add karo';}
+    else if(p5>=68&&p5<=74){al.className='ratio-alert ratio-ok';al.textContent=`✅ Ratio sahi! 5%: ${p5.toFixed(1)}% | 18%: ${p18.toFixed(1)}%`;}
+    else if(p5<68){al.className='ratio-alert ratio-warn';al.textContent=`⚠ 5% wala ${p5.toFixed(1)}% — 70% chahiye. Panels/Inverter badhao.`;}
+    else{al.className='ratio-alert ratio-warn';al.textContent=`⚠ 5% wala ${p5.toFixed(1)}% — zyada hai. Structure/Wires badhao.`;}
+  }
+}
+
+// ===== CUSTOMER APPLY =====
+function applyCustomer(){
+  const name=document.getElementById('cust-name').value;
+  const rel=document.getElementById('cust-rel').value;
+  const addr=document.getElementById('cust-addr').value;
+  const aadhar=document.getElementById('cust-aadhar').value;
+  const mobile=document.getElementById('cust-mobile').value;
+  const app=document.getElementById('cust-app').value;
+  const b2bFirm=document.getElementById('b2b-firm').value;
+  const b2bGstin=document.getElementById('b2b-gstin').value;
+  const html=`<b>${name}</b><br>${rel}<br>${addr.replace(/\n/g,'<br>')}<br>
+    ${mobile?'<b>Mobile:</b> '+mobile+'<br>':''}
+    ${aadhar?'<b>Aadhaar:</b> '+aadhar+'<br>':''}
+    ${b2bFirm?'<b>Firm:</b> '+b2bFirm+'<br>':''}
+    ${b2bGstin?'<b>GSTIN:</b> '+b2bGstin+'<br>':''}
+    ${app?'<b>App No.:</b> '+app:''}`;
+  document.getElementById('billed-to').innerHTML=html;
+  document.getElementById('shipped-to').innerHTML=html;
+}
+
+function applyMeta(){
+  const invNo=document.getElementById('inv-no').value;
+  const date=document.getElementById('inv-date').value;
+  const place=document.getElementById('inv-place').value;
+  const eway=document.getElementById('inv-eway').value;
+  document.getElementById('disp-invno').textContent=invNo||'JE/26-27/';
+  document.getElementById('disp-date').textContent=date?new Date(date).toLocaleDateString('en-IN',{day:'2-digit',month:'2-digit',year:'numeric'}):'-';
+  document.getElementById('disp-place').textContent=place;
+  document.getElementById('disp-eway').textContent=eway||'-';
+}
+
+// ===== WORDS =====
+function toWords(n){
+  if(n===0)return'Zero';
+  const ones=['','One','Two','Three','Four','Five','Six','Seven','Eight','Nine','Ten','Eleven','Twelve','Thirteen','Fourteen','Fifteen','Sixteen','Seventeen','Eighteen','Nineteen'];
+  const tens=['','','Twenty','Thirty','Forty','Fifty','Sixty','Seventy','Eighty','Ninety'];
+  function h(n){
+    if(n<20)return ones[n];
+    if(n<100)return tens[Math.floor(n/10)]+(n%10?' '+ones[n%10]:'');
+    return ones[Math.floor(n/100)]+' Hundred'+(n%100?' '+h(n%100):'');
+  }
+  let w='';
+  if(n>=10000000){w+=h(Math.floor(n/10000000))+' Crore ';n%=10000000;}
+  if(n>=100000){w+=h(Math.floor(n/100000))+' Lakh ';n%=100000;}
+  if(n>=1000){w+=h(Math.floor(n/1000))+' Thousand ';n%=1000;}
+  if(n>0)w+=h(n);
+  return'Rupees '+w.trim();
+}
+
+// ===== INIT =====
+renderStocks();
+document.getElementById('inv-date').value=new Date().toISOString().split('T')[0];
+applyMeta();
+addRow();addRow();addRow();
+</script>
+</body>
+</html>

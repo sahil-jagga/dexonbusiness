@@ -1,0 +1,1030 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nexbill Solar V2 — Professional Invoice Tool</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0a1628;--sf:#122040;--sf2:#1a2d50;--bd:#1e3a6e;
+  --ac:#f0c040;--gr:#3dba7a;--rd:#e05252;--bl:#4a8fe8;--pu:#9b59b6;
+  --tx:#e8f0fe;--tx2:#7a9cc8;
+}
+body{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);color:var(--tx);min-height:100vh}
+
+/* LOCK */
+#lockScreen{position:fixed;inset:0;background:linear-gradient(135deg,#0a1628,#1a2d50);display:flex;align-items:center;justify-content:center;z-index:9999;flex-direction:column;gap:12px}
+.lbox{background:#122040;border:2px solid var(--ac);border-radius:20px;padding:36px;text-align:center;max-width:420px;width:90%}
+.llogo{font-size:52px;margin-bottom:6px}
+.ltitle{font-size:30px;font-weight:800;color:var(--ac)}
+.lsub{font-size:13px;color:var(--tx2);margin-bottom:20px}
+.linput{width:100%;background:#0a1628;border:2px solid var(--bd);border-radius:10px;color:var(--tx);font-size:17px;font-weight:700;padding:12px 16px;margin-bottom:10px;text-align:center;letter-spacing:3px}
+.linput:focus{outline:none;border-color:var(--ac)}
+.lbtn{width:100%;background:var(--ac);color:#0a1628;border:none;border-radius:10px;padding:13px;font-size:15px;font-weight:800;cursor:pointer}
+.lerr{color:var(--rd);font-size:12px;margin-top:6px;display:none}
+.linfo{background:#0a1628;border:1px solid var(--bd);border-radius:8px;padding:10px;font-size:11px;color:var(--tx2);margin-top:12px;line-height:1.9}
+.linfo b{color:var(--ac)}
+
+/* UPGRADE MODAL */
+#upgModal{position:fixed;inset:0;background:rgba(0,0,0,.75);display:none;align-items:center;justify-content:center;z-index:9998}
+.ubox{background:#122040;border:2px solid var(--ac);border-radius:16px;padding:30px;max-width:400px;width:90%;text-align:center}
+.ubox h2{font-size:22px;color:var(--ac);margin-bottom:8px}
+.ubox p{font-size:13px;color:var(--tx2);margin-bottom:18px;line-height:1.6}
+.uplans{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px}
+.uplan{background:#091728;border:1px solid var(--bd);border-radius:10px;padding:12px;cursor:pointer}
+.uplan:hover{border-color:var(--ac)}
+.uplan .upn{font-size:13px;font-weight:700}
+.uplan .upp{font-size:22px;font-weight:800;color:var(--ac);margin:4px 0}
+.uplan .upd{font-size:10px;color:var(--tx2)}
+.uplan .upf{font-size:10px;color:var(--tx2);margin-top:6px;text-align:left;line-height:1.8}
+
+/* APP */
+#app{display:none}
+.layout{display:flex;height:100vh;overflow:hidden}
+
+/* SIDEBAR */
+.sb{width:270px;background:#0d1f38;border-right:1px solid var(--bd);display:flex;flex-direction:column;flex-shrink:0;overflow-y:auto}
+.sb-top{padding:14px;border-bottom:1px solid var(--bd);background:#091728}
+.sb-logo{font-size:19px;font-weight:800;color:var(--ac);display:flex;align-items:center;gap:6px}
+.sb-sub{font-size:10px;color:var(--tx2);margin-top:1px}
+.plan-badge{display:inline-block;background:rgba(240,192,64,.15);border:1px solid var(--ac);border-radius:20px;padding:2px 9px;font-size:10px;color:var(--ac);margin-top:6px;cursor:pointer}
+.sb-body{flex:1;padding:12px;overflow-y:auto}
+.sbs{margin-bottom:14px}
+.sbs h3{font-size:10px;color:var(--tx2);text-transform:uppercase;letter-spacing:1px;margin-bottom:7px;padding-bottom:3px;border-bottom:1px solid var(--bd)}
+.fl{margin-bottom:7px}
+.fl label{font-size:10px;color:var(--tx2);display:block;margin-bottom:2px}
+.fl input,.fl select,.fl textarea{width:100%;background:#091728;border:1px solid var(--bd);border-radius:5px;color:var(--tx);font-size:12px;padding:5px 8px}
+.fl input:focus,.fl select:focus,.fl textarea:focus{outline:none;border-color:var(--ac)}
+.lprev{width:100%;height:56px;background:#091728;border:1px dashed var(--bd);border-radius:5px;display:flex;align-items:center;justify-content:center;margin-top:3px;overflow:hidden;cursor:pointer}
+.lprev img{max-height:52px;max-width:100%;object-fit:contain}
+
+/* TABS */
+.mode-tabs{display:flex;gap:3px;margin-bottom:10px}
+.mt{flex:1;padding:6px 4px;border:none;border-radius:5px;cursor:pointer;font-size:10px;font-weight:700}
+.mt.on{background:var(--ac);color:#0a1628}
+.mt.off{background:#091728;color:var(--tx2);border:1px solid var(--bd)}
+
+/* CALC */
+.tbox{background:#091728;border:2px solid var(--ac);border-radius:8px;padding:9px;margin-bottom:8px}
+.tbox label{font-size:11px;color:var(--ac);font-weight:700;display:block;margin-bottom:3px}
+.tbox input{width:100%;background:#0a1628;border:1px solid var(--ac);border-radius:5px;color:var(--ac);font-size:18px;font-weight:800;padding:6px 9px}
+.cstats{display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-top:7px}
+.cs{background:#0a1628;border-radius:5px;padding:5px 7px;font-size:10px;color:var(--tx2)}
+.cs .cv{font-size:13px;font-weight:700;margin-top:2px}
+.rbox{background:#091728;border:1px solid var(--bd);border-radius:7px;padding:7px;margin-bottom:8px}
+.rbar{height:11px;background:#0a1628;border-radius:5px;overflow:hidden;display:flex;margin:5px 0}
+.rb5{height:100%;background:var(--gr);transition:width .3s}
+.rb18{height:100%;background:#e07820;transition:width .3s}
+.rlbls{display:flex;justify-content:space-between;font-size:10px}
+.ralt{font-size:10px;padding:3px 7px;border-radius:4px;margin-top:4px}
+.rok{background:rgba(61,186,122,.15);color:var(--gr)}
+.rwn{background:rgba(240,192,64,.15);color:var(--ac)}
+
+/* TEMPLATE */
+.tgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;margin-bottom:8px}
+.tc{background:#091728;border:2px solid var(--bd);border-radius:7px;padding:5px;cursor:pointer;text-align:center;transition:.2s}
+.tc.on{border-color:var(--ac);background:rgba(240,192,64,.1)}
+.tc .ti{font-size:18px;margin-bottom:1px}
+.tc .tn{font-size:9px;color:var(--tx2);font-weight:700}
+
+/* STOCK */
+.si{background:#091728;border-radius:4px;padding:3px 6px;margin-bottom:2px;display:flex;align-items:center;gap:3px;font-size:10px}
+.sin{flex:1;color:var(--tx);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sig{color:var(--gr);font-size:9px;min-width:22px}
+.sid{background:none;border:none;color:var(--rd);cursor:pointer;font-size:13px;padding:0 2px;line-height:1}
+.asr{display:grid;grid-template-columns:1fr 50px 36px;gap:3px;margin-top:4px}
+.asr input{padding:4px 5px;background:#091728;border:1px solid var(--bd);border-radius:3px;color:var(--tx);font-size:11px}
+
+/* BTNS */
+.btn{padding:5px 12px;border:none;border-radius:5px;cursor:pointer;font-size:12px;font-weight:700}
+.bac{background:var(--ac);color:#0a1628}
+.bgr{background:var(--gr);color:#fff}
+.bbl{background:var(--bl);color:#fff}
+.brd{background:var(--rd);color:#fff;font-size:10px;padding:3px 7px}
+.bot{background:transparent;border:1px solid var(--ac);color:var(--ac);padding:4px 9px;font-size:11px}
+.bpr{background:#091728;color:var(--ac);border:2px solid var(--ac);font-size:13px;padding:8px 20px}
+.bfu{width:100%;margin-top:4px}
+
+/* MAIN */
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.toolbar{background:#091728;border-bottom:1px solid var(--bd);padding:8px 14px;display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.toolbar h3{flex:1;font-size:14px;font-weight:700;color:var(--ac)}
+.icnt{background:#091728;border:1px solid var(--bd);border-radius:5px;padding:3px 9px;font-size:11px;color:var(--tx2)}
+.icnt b{color:var(--ac)}
+
+/* DOC TABS */
+.dtabs{display:flex;border-bottom:1px solid var(--bd);background:#091728;padding:0 14px}
+.dt{padding:9px 16px;border:none;background:transparent;color:var(--tx2);cursor:pointer;font-size:12px;font-weight:600;border-bottom:2px solid transparent;margin-bottom:-1px}
+.dt.on{color:var(--ac);border-bottom-color:var(--ac)}
+
+.wrap{flex:1;overflow-y:auto;padding:14px;background:#f0f2f5}
+.cbanner{background:rgba(240,192,64,.12);border:1px solid var(--ac);border-radius:5px;padding:7px 12px;font-size:11px;color:var(--ac);margin-bottom:10px;display:none}
+
+/* ===== INVOICE TEMPLATES ===== */
+/* T1 - Clean White */
+.t1{background:#fff;max-width:850px;margin:0 auto;padding:22px;color:#222;font-size:11px;box-shadow:0 4px 20px rgba(0,0,0,.12);border-radius:6px}
+.t1h{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #1a3a6e;padding-bottom:12px;margin-bottom:12px}
+.t1fn{font-size:19px;font-weight:800;color:#1a3a6e}
+.t1fs{font-size:10px;color:#555;margin-top:2px}
+.t1b{background:#1a3a6e;color:#fff;font-size:11px;font-weight:700;padding:4px 12px;border-radius:4px}
+.t1meta{background:#f5f7ff;border:1px solid #dde;border-radius:4px;padding:5px 9px;display:flex;gap:14px;font-size:10px;margin-bottom:9px;flex-wrap:wrap}
+.t1cust{display:flex;gap:7px;margin-bottom:9px}
+.t1cb{flex:1;border:1px solid #ddd;border-radius:4px;padding:6px}
+.t1cbh{font-size:10px;font-weight:700;color:#1a3a6e;border-bottom:1px solid #eee;padding-bottom:2px;margin-bottom:3px}
+.gth1{background:#1a3a6e;color:#fff}
+.gr1 td{background:#1a3a6e;color:#fff;font-weight:700}
+
+/* T2 - Blue Corporate */
+.t2{background:#fff;max-width:850px;margin:0 auto;color:#222;font-size:11px;box-shadow:0 4px 20px rgba(0,0,0,.12);border-radius:6px;overflow:hidden}
+.t2h{background:linear-gradient(135deg,#0d2a5e,#1a4a9e);color:#fff;padding:18px 22px;display:flex;justify-content:space-between;align-items:flex-start}
+.t2fn{font-size:21px;font-weight:800}
+.t2fs{font-size:10px;opacity:.8;margin-top:2px}
+.t2b{background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.4);border-radius:4px;padding:4px 12px;font-size:12px;font-weight:700}
+.t2gold{background:#f0c040;height:4px}
+.t2bd{padding:14px 22px}
+.t2meta{display:flex;gap:10px;font-size:10px;background:#f0f4ff;padding:5px 9px;border-radius:4px;margin-bottom:9px;flex-wrap:wrap}
+.t2cust{display:flex;gap:7px;margin-bottom:9px}
+.t2cb{flex:1;border-left:3px solid #1a4a9e;padding:5px 8px;background:#f8f9ff}
+.t2cbh{font-size:10px;font-weight:700;color:#1a4a9e;margin-bottom:3px}
+.gth2{background:#1a4a9e;color:#fff}
+.gr2 td{background:#1a4a9e;color:#fff;font-weight:700}
+
+/* T3 - Dark Premium */
+.t3{background:#0d1f38;max-width:850px;margin:0 auto;color:#e8f0fe;font-size:11px;box-shadow:0 4px 20px rgba(0,0,0,.4);border-radius:6px;overflow:hidden}
+.t3h{background:#091728;border-bottom:2px solid #f0c040;padding:18px 22px;display:flex;justify-content:space-between;align-items:flex-start}
+.t3fn{font-size:21px;font-weight:800;color:#f0c040}
+.t3fs{font-size:10px;color:#7a9cc8;margin-top:2px}
+.t3b{background:#f0c040;color:#091728;font-size:12px;font-weight:800;padding:4px 12px;border-radius:4px}
+.t3bd{padding:14px 22px}
+.t3meta{display:flex;gap:10px;font-size:10px;background:#091728;padding:5px 9px;border-radius:4px;margin-bottom:9px;flex-wrap:wrap;color:#aabbcc}
+.t3cust{display:flex;gap:7px;margin-bottom:9px}
+.t3cb{flex:1;border:1px solid #1e3a6e;border-radius:4px;padding:5px 8px}
+.t3cbh{font-size:10px;font-weight:700;color:#f0c040;margin-bottom:3px}
+.gth3{background:#091728;color:#f0c040}
+.gr3 td{background:#f0c040;color:#091728;font-weight:700}
+
+/* TABLE */
+.itbl{width:100%;border-collapse:collapse;font-size:10px;margin-bottom:7px}
+.itbl th{padding:4px 3px;text-align:center;font-size:9px;font-weight:700;border:1px solid rgba(0,0,0,.1)}
+.itbl td{border:1px solid rgba(0,0,0,.08);padding:2px 3px;vertical-align:middle}
+.itbl td input,.itbl td select{width:100%;border:none;outline:none;background:transparent;font-size:10px;color:inherit}
+.bc{background:#fff9e6;color:#7a5000;font-weight:700;text-align:right}
+.bc input{color:#7a5000!important;font-weight:700;text-align:right}
+.sc{background:#e8f8e8;color:#1a7a4a;font-weight:700;text-align:right}
+.sc input{color:#1a7a4a!important;font-weight:700;text-align:right}
+.sc3{background:rgba(61,186,122,.1);color:#3dba7a;font-weight:700;text-align:right}
+.sc3 input{color:#3dba7a!important;font-weight:700;text-align:right}
+.ac2{text-align:right;font-weight:700}
+.tfr td{font-weight:700;text-align:right;padding:3px 4px}
+.sta{width:100%;font-size:9px;border:none;background:transparent;resize:none;color:inherit;min-height:13px;overflow:hidden;font-family:monospace;line-height:1.4;margin-top:1px}
+
+/* GST SUMMARY */
+.gsw{display:flex;justify-content:flex-end;margin-top:5px}
+.gtbl{border-collapse:collapse;font-size:10px;min-width:285px}
+.gtbl th{padding:3px 6px;font-size:9px;font-weight:700;border:1px solid rgba(0,0,0,.1)}
+.gtbl td{border:1px solid rgba(0,0,0,.08);padding:2px 6px;text-align:right}
+.gfoot td{font-weight:700;background:#f5f5f5}
+.gfoot3 td{font-weight:700;background:#091728;color:#f0c040}
+
+/* FOOTER */
+.iftr{margin-top:9px;font-size:10px}
+.bkstr{padding:4px 8px;border-radius:4px;margin-bottom:4px}
+.bk1{background:#f0f4ff;border:1px solid #dde}
+.bk2{background:#f0f4ff;border-left:3px solid #1a4a9e}
+.bk3{background:#091728;border:1px solid #1e3a6e;color:#aabbcc}
+.sigr{display:flex;justify-content:space-between;margin-top:14px;padding-top:7px}
+.sigb{text-align:center;font-size:10px}
+.sigl{border-top:1px solid currentColor;width:155px;margin:18px auto 3px}
+
+/* WCC */
+.wcc{background:#fff;max-width:750px;margin:0 auto;padding:30px;color:#222;font-size:12px;box-shadow:0 4px 20px rgba(0,0,0,.12);border-radius:6px}
+.wcc-hdr{text-align:center;border-bottom:2px solid #1a3a6e;padding-bottom:14px;margin-bottom:16px}
+.wcc-fn{font-size:22px;font-weight:800;color:#1a3a6e}
+.wcc-fs{font-size:11px;color:#555;margin-top:3px}
+.wcc-title{font-size:17px;font-weight:800;text-decoration:underline;margin:16px 0 20px;text-align:center}
+.wcc-row{display:flex;gap:10px;margin-bottom:10px;font-size:12px;align-items:flex-start}
+.wcc-lbl{font-weight:700;min-width:180px;color:#1a3a6e}
+.wcc-val{flex:1;border-bottom:1px solid #ccc;padding-bottom:2px;min-height:20px}
+.wcc-val input{width:100%;border:none;outline:none;font-size:12px;color:#222;background:transparent}
+.wcc-notice{font-size:11px;font-weight:700;margin:16px 0;line-height:1.7}
+
+/* QUOTATION */
+.qw{background:#fff;max-width:850px;margin:0 auto;color:#222;font-size:11px;box-shadow:0 4px 20px rgba(0,0,0,.12);border-radius:6px;overflow:hidden}
+.qh{background:linear-gradient(135deg,#1a5a2e,#2e8a4e);color:#fff;padding:18px 22px;display:flex;justify-content:space-between;align-items:flex-start}
+.qfn{font-size:21px;font-weight:800}
+.qfs{font-size:10px;opacity:.8;margin-top:2px}
+.qb{background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.4);border-radius:4px;padding:4px 12px;font-size:12px;font-weight:700}
+.qgold{background:#f0c040;height:4px}
+.qbd{padding:14px 22px}
+.qmeta{display:flex;gap:10px;font-size:10px;background:#f0fff4;padding:5px 9px;border-radius:4px;margin-bottom:9px;flex-wrap:wrap}
+.qcust{display:flex;gap:7px;margin-bottom:9px}
+.qcb{flex:1;border-left:3px solid #2e8a4e;padding:5px 8px;background:#f0fff4}
+.qcbh{font-size:10px;font-weight:700;color:#1a5a2e;margin-bottom:3px}
+.gthq{background:#1a5a2e;color:#fff}
+.grq td{background:#1a5a2e;color:#fff;font-weight:700}
+
+@media print{
+  .sb,.toolbar,.dtabs,.btn,.cbanner,.bc,.bpr,#lockScreen,#upgModal{display:none!important}
+  .wrap{padding:0;background:#fff}
+  .main{display:block}
+  body{background:#fff}
+  .t3{color:#222!important}
+  .t3 *{color:#222!important;background:#fff!important;border-color:#ccc!important}
+  .t3fn{color:#0d2a5e!important}
+  .t3b{background:#0d2a5e!important;color:#fff!important}
+}
+</style>
+</head>
+<body>
+
+<!-- LOCK -->
+<div id="lockScreen">
+  <div class="lbox">
+    <div class="llogo">☀</div>
+    <div class="ltitle">NEXBILL SOLAR</div>
+    <div class="lsub">Professional Solar Invoice Tool — V2.0</div>
+    <input type="text" id="licKey" class="linput" placeholder="ENTER LICENSE KEY" maxlength="32" oninput="this.value=this.value.toUpperCase()">
+    <button class="lbtn" onclick="verifyLic()">🔓 Unlock</button>
+    <div class="lerr" id="lerr">❌ Invalid key. Please check again.</div>
+    <div class="linfo">
+      <b>Trial Key:</b> TRIAL-NEXBILL-2026 (5 invoices/month)<br>
+      <b>Pro Rs.999/yr:</b> Unlimited + All Templates<br>
+      <b>Biz Rs.1999/yr:</b> Pro + Multi-firm + Reports<br>
+      📞 <b>94298-42000</b> — License ke liye contact karein
+    </div>
+  </div>
+</div>
+
+<!-- UPGRADE -->
+<div id="upgModal">
+  <div class="ubox">
+    <h2>🚀 Upgrade Karein</h2>
+    <p>Free plan limit ho gayi!<br>Upgrade karo — unlimited invoices!</p>
+    <div class="uplans">
+      <div class="uplan">
+        <div class="upn">⭐ Pro</div>
+        <div class="upp">₹999</div>
+        <div class="upd">/year</div>
+        <div class="upf">✅ Unlimited invoices<br>✅ All 3 templates<br>✅ Logo + Firm<br>✅ Customer DB</div>
+      </div>
+      <div class="uplan">
+        <div class="upn">🚀 Business</div>
+        <div class="upp">₹1,999</div>
+        <div class="upd">/year</div>
+        <div class="upf">✅ All Pro features<br>✅ 2 firms<br>✅ GST Reports<br>✅ Priority support</div>
+      </div>
+    </div>
+    <p style="font-size:12px;color:var(--ac)">📞 <b>94298-42000</b> pe call karo</p>
+    <button class="btn bot" onclick="document.getElementById('upgModal').style.display='none'" style="margin-top:10px">Later</button>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app">
+<div class="layout">
+
+<!-- SIDEBAR -->
+<div class="sb">
+  <div class="sb-top">
+    <div class="sb-logo">☀ NEXBILL SOLAR</div>
+    <div class="sb-sub">Professional Invoice Tool V2.0</div>
+    <div class="plan-badge" id="planBadge" onclick="changeLic()" title="Click to change license">Free Trial ↗</div>
+  </div>
+  <div class="sb-body">
+
+    <div class="sbs">
+      <h3>Mode</h3>
+      <div class="mode-tabs">
+        <button class="mt on" id="mCalc" onclick="setMode('calc')">🧮 Calc</button>
+        <button class="mt off" id="mInv" onclick="setMode('invoice')">📄 Invoice</button>
+        <button class="mt off" id="mSet" onclick="setMode('settings')">⚙️ Settings</button>
+      </div>
+    </div>
+
+    <!-- CALC MODE -->
+    <div id="pCalc" class="sbs">
+      <div class="tbox">
+        <label>🎯 Bill Target (Rs.)</label>
+        <input type="number" id="targetP" value="200000" oninput="calc()">
+      </div>
+      <div class="cstats">
+        <div class="cs"><div>Buying (w/GST)</div><div class="cv" id="cBuy" style="color:var(--tx2)">₹0</div></div>
+        <div class="cs"><div>Profit</div><div class="cv" id="cProfit" style="color:var(--gr)">₹0</div></div>
+        <div class="cs"><div>5% GST Total</div><div class="cv" id="c5" style="color:var(--gr)">₹0</div></div>
+        <div class="cs"><div>18% GST Total</div><div class="cv" id="c18" style="color:#e07820">₹0</div></div>
+      </div>
+      <div class="rbox">
+        <div style="font-size:10px;color:var(--tx2);margin-bottom:4px">GST Ratio (Selling mein)</div>
+        <div class="rbar"><div class="rb5" id="rb5" style="width:0%"></div><div class="rb18" id="rb18" style="width:0%"></div></div>
+        <div class="rlbls"><span style="color:var(--gr)" id="rp5">5%: 0%</span><span style="color:#e07820" id="rp18">18%: 0%</span></div>
+        <div class="ralt rwn" id="ralt">Items add karo</div>
+      </div>
+    </div>
+
+    <!-- INVOICE MODE -->
+    <div id="pInv" style="display:none">
+      <div class="sbs">
+        <h3>Invoice Details</h3>
+        <div class="fl"><label>Invoice No.</label><input id="invNo" placeholder="JE/26-27/001" oninput="applyMeta()"></div>
+        <div class="fl"><label>Date</label><input type="date" id="invDate" onchange="applyMeta()"></div>
+        <div class="fl"><label>E-Way Bill No.</label><input id="invEway" placeholder="Optional" oninput="applyMeta()"></div>
+        <div class="fl"><label>Quotation Ref. No.</label><input id="quotRef" placeholder="For quotation tab" oninput="applyMeta()"></div>
+      </div>
+      <div class="sbs">
+        <h3>Customer</h3>
+        <div class="fl"><label>Name</label><input id="cName"></div>
+        <div class="fl"><label>S/O or W/O</label><input id="cRel" placeholder="S/O Ramesh Kumar"></div>
+        <div class="fl"><label>Address</label><textarea id="cAddr" rows="2"></textarea></div>
+        <div class="fl"><label>Mobile</label><input id="cMob"></div>
+        <div class="fl"><label>Aadhaar No.</label><input id="cAadhar"></div>
+        <div class="fl"><label>App No. (PM Surya Ghar)</label><input id="cApp"></div>
+        <div class="fl"><label>GSTIN (if B2B)</label><input id="cGstin"></div>
+        <button class="btn bac bfu" onclick="applyCust()">✅ Apply Customer</button>
+      </div>
+      <div class="sbs">
+        <h3>WCC Details</h3>
+        <div class="fl"><label>Plant Capacity (kW)</label><input id="wccKw" placeholder="5 KW"></div>
+        <div class="fl"><label>Inverter Make</label><input id="wccInv" placeholder="Polycab / Deye"></div>
+        <div class="fl"><label>Panel Make</label><input id="wccPanel" placeholder="Waaree"></div>
+        <div class="fl"><label>Completion Date</label><input type="date" id="wccDate"></div>
+      </div>
+    </div>
+
+    <!-- SETTINGS MODE -->
+    <div id="pSet" style="display:none">
+      <div class="sbs">
+        <h3>Firm Details</h3>
+        <div class="fl"><label>Firm Name</label><input id="fName" oninput="saveFirmLive()"></div>
+        <div class="fl"><label>Address</label><textarea id="fAddr" rows="2" oninput="saveFirmLive()"></textarea></div>
+        <div class="fl"><label>Mobile / Tel</label><input id="fMob" oninput="saveFirmLive()"></div>
+        <div class="fl"><label>GSTIN</label><input id="fGstin" oninput="saveFirmLive()"></div>
+        <div class="fl"><label>Email</label><input id="fEmail" oninput="saveFirmLive()"></div>
+        <div class="fl"><label>Tagline</label><input id="fTag" placeholder="Solar Energy Solutions..." oninput="saveFirmLive()"></div>
+        <div class="fl"><label>Logo</label>
+          <div class="lprev" id="lprev" onclick="document.getElementById('lfile').click()">
+            <span style="font-size:10px;color:var(--tx2)">Click to upload logo</span>
+          </div>
+          <input type="file" id="lfile" accept="image/*" style="display:none" onchange="loadLogo(this)">
+        </div>
+        <button class="btn bbl bfu" onclick="saveFirm()">💾 Save Firm Details</button>
+      </div>
+      <div class="sbs">
+        <h3>Bank Details</h3>
+        <div class="fl"><label>Bank Name</label><input id="bkName" placeholder="Punjab National Bank"></div>
+        <div class="fl"><label>Account No.</label><input id="bkAc" placeholder="6156002100006195"></div>
+        <div class="fl"><label>IFSC Code</label><input id="bkIfsc" placeholder="PUNB0615600"></div>
+        <div class="fl"><label>Branch</label><input id="bkBranch" placeholder="Sadhuali Cantt, Ganganagar"></div>
+        <button class="btn bbl bfu" onclick="saveBank()">💾 Save Bank Details</button>
+      </div>
+      <div class="sbs">
+        <h3>Disclaimer / T&C</h3>
+        <div class="fl"><label>Declaration (Invoice)</label><textarea id="decl" rows="2"></textarea></div>
+        <div class="fl"><label>Terms & Conditions</label><textarea id="tnc" rows="3"></textarea></div>
+        <button class="btn bbl bfu" onclick="saveTnc()">💾 Save T&C</button>
+      </div>
+      <div class="sbs">
+        <h3>Currency</h3>
+        <div class="fl"><label>Currency Symbol</label>
+          <select id="currency" onchange="saveCurrency()">
+            <option value="₹">₹ Indian Rupee</option>
+            <option value="$">$ US Dollar</option>
+            <option value="AED">AED UAE Dirham</option>
+            <option value="£">£ British Pound</option>
+            <option value="€">€ Euro</option>
+          </select>
+        </div>
+      </div>
+      <div class="sbs">
+        <h3>License</h3>
+        <div style="background:#091728;border:1px solid var(--bd);border-radius:6px;padding:8px;font-size:11px;margin-bottom:8px">
+          <div style="color:var(--tx2)">Current Plan: <b id="planDisp" style="color:var(--ac)">—</b></div>
+          <div style="color:var(--tx2);margin-top:3px">Expiry: <b id="expiryDisp" style="color:var(--ac)">—</b></div>
+        </div>
+        <button class="btn bac bfu" onclick="changeLic()">🔑 Change License Key</button>
+        <button class="btn brd bfu" style="margin-top:4px" onclick="logout()">🚪 Logout</button>
+      </div>
+    </div>
+
+    <!-- TEMPLATE (always visible) -->
+    <div class="sbs">
+      <h3>Template</h3>
+      <div class="tgrid">
+        <div class="tc on" id="tc1" onclick="setTpl(1)"><div class="ti">📄</div><div class="tn">Clean</div></div>
+        <div class="tc" id="tc2" onclick="setTpl(2)"><div class="ti">🔵</div><div class="tn">Blue</div></div>
+        <div class="tc" id="tc3" onclick="setTpl(3)"><div class="ti">🌙</div><div class="tn">Dark</div></div>
+      </div>
+    </div>
+
+    <!-- STOCK -->
+    <div class="sbs">
+      <h3>Solar Items</h3>
+      <div id="stklist"></div>
+      <div class="asr">
+        <input id="nsn" placeholder="Item name">
+        <input id="nsh" placeholder="HSN">
+        <input id="nsg" placeholder="GST%" type="number">
+      </div>
+      <button class="btn bac bfu" style="font-size:10px;margin-top:3px" onclick="addStk()">+ Add Item</button>
+      <button class="btn bbl bfu" style="font-size:10px;margin-top:3px" onclick="saveStk()">💾 Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- MAIN -->
+<div class="main">
+  <div class="toolbar">
+    <h3 id="ttl">🧮 Calculator + Invoice</h3>
+    <div class="icnt">Month: <b id="icnt">0</b>/<b id="ilimit">5</b></div>
+    <button class="btn bgr" onclick="addRow()">+ Row</button>
+    <button class="btn bot" onclick="clearRows()">🗑</button>
+    <button class="btn bpr" onclick="doPrint()">🖨 Print/PDF</button>
+  </div>
+
+  <!-- DOC TYPE TABS -->
+  <div class="dtabs">
+    <button class="dt on" id="dt1" onclick="setDocType('invoice')">📄 Tax Invoice</button>
+    <button class="dt" id="dt2" onclick="setDocType('quotation')">📋 Quotation</button>
+    <button class="dt" id="dt3" onclick="setDocType('wcc')">✅ Work Completion</button>
+    <button class="dt" id="dt4" onclick="setDocType('estimate')">🏦 Bank Estimate</button>
+  </div>
+
+  <div class="wrap">
+    <div class="cbanner" id="cbanner">🧮 <b>Calculator Mode:</b> Buying rate daalo → Selling auto-calculate hogi</div>
+    <div id="invCont"></div>
+  </div>
+</div>
+</div>
+</div>
+
+<script>
+// ===== LICENSE =====
+const LICS={
+  'TRIAL-NEXBILL-2026':{plan:'Free Trial',inv:5,tpl:[1,2,3],exp:'2027-03-31'},
+  'NXB-PRO-SAHIL-001':{plan:'Pro ⭐',inv:9999,tpl:[1,2,3],exp:'2027-10-20'},
+  'NXB-BIZ-SAHIL-001':{plan:'Business 🚀',inv:9999,tpl:[1,2,3],exp:'2027-10-20'},
+};
+let lic=null;
+function verifyLic(){
+  const k=document.getElementById('licKey').value.trim();
+  const l=LICS[k];
+  if(!l){document.getElementById('lerr').style.display='block';return;}
+  if(new Date()>new Date(l.exp)){
+    document.getElementById('lerr').textContent='❌ License expired. Please renew — 94298-42000';
+    document.getElementById('lerr').style.display='block';return;
+  }
+  lic=l;
+  localStorage.setItem('nb_key',k);
+  document.getElementById('lockScreen').style.display='none';
+  document.getElementById('app').style.display='block';
+  document.getElementById('planBadge').textContent=l.plan+' ↗';
+  document.getElementById('planDisp').textContent=l.plan;
+  document.getElementById('expiryDisp').textContent=new Date(l.exp).toLocaleDateString('en-IN');
+  document.getElementById('ilimit').textContent=l.inv>100?'∞':l.inv;
+  initApp();
+}
+function changeLic(){
+  const k=prompt('Enter new license key:');
+  if(!k)return;
+  const kk=k.trim().toUpperCase();
+  const l=LICS[kk];
+  if(!l){alert('❌ Invalid key!');return;}
+  if(new Date()>new Date(l.exp)){alert('❌ License expired!');return;}
+  lic=l;localStorage.setItem('nb_key',kk);
+  document.getElementById('planBadge').textContent=l.plan+' ↗';
+  document.getElementById('planDisp').textContent=l.plan;
+  document.getElementById('expiryDisp').textContent=new Date(l.exp).toLocaleDateString('en-IN');
+  document.getElementById('ilimit').textContent=l.inv>100?'∞':l.inv;
+  alert('✅ License updated! Plan: '+l.plan);
+}
+function logout(){
+  if(confirm('Logout karein?')){localStorage.removeItem('nb_key');location.reload();}
+}
+window.onload=()=>{
+  const k=localStorage.getItem('nb_key');
+  if(k&&LICS[k]){document.getElementById('licKey').value=k;verifyLic();}
+};
+
+// COUNT
+function mKey(){const d=new Date();return`nb_cnt_${d.getFullYear()}_${d.getMonth()}`;}
+function getCnt(){return parseInt(localStorage.getItem(mKey())||'0');}
+function incCnt(){localStorage.setItem(mKey(),getCnt()+1);document.getElementById('icnt').textContent=getCnt();}
+function checkLim(){
+  if(lic&&lic.inv<9999&&getCnt()>=lic.inv){
+    document.getElementById('upgModal').style.display='flex';return false;
+  }
+  return true;
+}
+
+// STOCKS
+const DSTK=[
+  {n:"Solar PV Module DCR (ALMM)",h:"85414300",g:5},
+  {n:"Solar PV Module NDCR",h:"85414300",g:5},
+  {n:"Solar Inverter",h:"85044090",g:5},
+  {n:"MMS GI C-Channel (HDG)",h:"73089030",g:18},
+  {n:"C-Channel 4\" (GI)",h:"73063090",g:18},
+  {n:"C-Channel 3\" (GI)",h:"73063090",g:18},
+  {n:"Stud Channel (GI)",h:"730890",g:18},
+  {n:"Base Plate 150x150x6 MM",h:"73061011",g:18},
+  {n:"DC Solar Cable 4mm Copper",h:"85446020",g:18},
+  {n:"AC Cable Multistrand Copper",h:"85446020",g:18},
+  {n:"ACDB Box",h:"85371000",g:18},
+  {n:"DCDB Box",h:"85371000",g:18},
+  {n:"Indo Meter Box 1ph",h:"85371000",g:18},
+  {n:"Lightning Arrester (LA)",h:"85354010",g:18},
+  {n:"Earthing Electrode 2.25 Mtr",h:"83111000",g:18},
+  {n:"Chemical Bag 25 KG",h:"73089090",g:18},
+  {n:"PVC Conduit / Shedal",h:"392690",g:18},
+  {n:"Installation & Commissioning",h:"9954",g:18},
+];
+let stk=[];
+function loadStk(){stk=JSON.parse(localStorage.getItem('nb_stk5')||'null')||[...DSTK];rstk();}
+function saveStk(){localStorage.setItem('nb_stk5',JSON.stringify(stk));alert('✅ Saved!');}
+function addStk(){
+  const n=document.getElementById('nsn').value.trim();
+  const h=document.getElementById('nsh').value.trim();
+  const g=parseFloat(document.getElementById('nsg').value)||18;
+  if(!n)return;
+  stk.push({n,h,g});
+  document.getElementById('nsn').value='';
+  rstk();saveStk();
+}
+function delStk(i){stk.splice(i,1);rstk();saveStk();}
+function rstk(){
+  document.getElementById('stklist').innerHTML=stk.map((s,i)=>`
+    <div class="si">
+      <span class="sin" title="${s.n}">${s.n.length>24?s.n.substr(0,24)+'…':s.n}</span>
+      <span class="sig">${s.g}%</span>
+      <button class="sid" onclick="delStk(${i})">×</button>
+    </div>`).join('');
+}
+
+// FIRM
+let fd={name:'JAGGA ENTERPRISES & CO.',addr:'Vinoba Basti 390B, Near TLT Coaching Centre, Sri Ganganagar, Rajasthan - 335001',mob:'94298-42000 | 94283-42000',gstin:'08ERPPK7078L1ZS',email:'',tag:'Solar Energy Solutions | PM Surya Ghar Empanelled Vendor',logo:''};
+let bk={name:'Punjab National Bank',ac:'6156002100006195',ifsc:'PUNB0615600',branch:'Sadhuali Cantt, Sri Ganganagar'};
+let tc={decl:'All solar product warranty is provided by respective manufacturer. PM Surya Ghar subsidy credited directly to customer account.',tnc:'1. E.&O.E. 2. Goods once sold will not be taken back. 3. Subject to Sri Ganganagar Jurisdiction only.'};
+let cur='₹';
+
+function loadFirm(){
+  const f=JSON.parse(localStorage.getItem('nb_firm5')||'null');if(f)fd=f;
+  const b=JSON.parse(localStorage.getItem('nb_bk5')||'null');if(b)bk=b;
+  const t=JSON.parse(localStorage.getItem('nb_tc5')||'null');if(t)tc=t;
+  const c=localStorage.getItem('nb_cur5');if(c)cur=c;
+  document.getElementById('fName').value=fd.name;
+  document.getElementById('fAddr').value=fd.addr;
+  document.getElementById('fMob').value=fd.mob;
+  document.getElementById('fGstin').value=fd.gstin;
+  document.getElementById('fEmail').value=fd.email||'';
+  document.getElementById('fTag').value=fd.tag||'';
+  if(fd.logo){document.getElementById('lprev').innerHTML=`<img src="${fd.logo}"/>`;}
+  document.getElementById('bkName').value=bk.name;
+  document.getElementById('bkAc').value=bk.ac;
+  document.getElementById('bkIfsc').value=bk.ifsc;
+  document.getElementById('bkBranch').value=bk.branch;
+  document.getElementById('decl').value=tc.decl;
+  document.getElementById('tnc').value=tc.tnc;
+  document.getElementById('currency').value=cur;
+}
+function saveFirmLive(){
+  fd.name=document.getElementById('fName').value;
+  fd.addr=document.getElementById('fAddr').value;
+  fd.mob=document.getElementById('fMob').value;
+  fd.gstin=document.getElementById('fGstin').value;
+  fd.email=document.getElementById('fEmail').value;
+  fd.tag=document.getElementById('fTag').value;
+}
+function saveFirm(){
+  saveFirmLive();
+  localStorage.setItem('nb_firm5',JSON.stringify(fd));
+  renderDoc();alert('✅ Firm saved!');
+}
+function saveBank(){
+  bk={name:document.getElementById('bkName').value,ac:document.getElementById('bkAc').value,ifsc:document.getElementById('bkIfsc').value,branch:document.getElementById('bkBranch').value};
+  localStorage.setItem('nb_bk5',JSON.stringify(bk));
+  alert('✅ Bank saved!');
+}
+function saveTnc(){
+  tc={decl:document.getElementById('decl').value,tnc:document.getElementById('tnc').value};
+  localStorage.setItem('nb_tc5',JSON.stringify(tc));
+  alert('✅ T&C saved!');
+}
+function saveCurrency(){
+  cur=document.getElementById('currency').value;
+  localStorage.setItem('nb_cur5',cur);
+  calc();
+}
+function loadLogo(inp){
+  const f=inp.files[0];if(!f)return;
+  const r=new FileReader();
+  r.onload=e=>{fd.logo=e.target.result;document.getElementById('lprev').innerHTML=`<img src="${e.target.result}"/>`;};
+  r.readAsDataURL(f);
+}
+
+// MODE
+let mode='calc',docType='invoice',tpl=1;
+function setMode(m){
+  mode=m;
+  ['Calc','Inv','Set'].forEach(x=>{
+    document.getElementById('m'+x).className='mt'+(m===x.toLowerCase()||(m==='calc'&&x==='Calc')||(m==='invoice'&&x==='Inv')||(m==='settings'&&x==='Set')?' on':' off');
+  });
+  document.getElementById('pCalc').style.display=m==='calc'?'':'none';
+  document.getElementById('pInv').style.display=m==='invoice'?'':'none';
+  document.getElementById('pSet').style.display=m==='settings'?'':'none';
+  document.getElementById('cbanner').style.display=m==='calc'?'block':'none';
+  document.getElementById('ttl').textContent=m==='calc'?'🧮 Calculator + Invoice':m==='invoice'?'📄 Document Mode':'⚙️ Settings';
+  document.querySelectorAll('.bc').forEach(el=>el.style.display=m==='calc'?'':'none');
+  if(m==='calc')calc();
+}
+function setDocType(t){
+  docType=t;
+  ['invoice','quotation','wcc','estimate'].forEach((x,i)=>{
+    document.getElementById('dt'+(i+1)).className='dt'+(t===x?' on':'');
+  });
+  renderDoc();
+}
+function setTpl(t){
+  tpl=t;
+  [1,2,3].forEach(i=>document.getElementById('tc'+i).className='tc'+(i===t?' on':''));
+  renderDoc();
+}
+
+// ROWS
+let rc=0,rows=[];
+function addRow(){
+  rc++;
+  rows.push({id:rc,name:'',hsn:'',gst:18,qty:1,unit:'Pcs.',buy:0,rate:0,line:0,cgst:0,sgst:0,tot:0});
+  renderDoc();
+  setTimeout(()=>{const el=document.getElementById('d-'+rc);if(el)el.focus();},50);
+}
+function delRow(id){rows=rows.filter(r=>r.id!==id);renum();calc();}
+function clearRows(){if(confirm('Clear all rows?')){rows=[];rc=0;calc();}}
+function renum(){rows.forEach((r,i)=>{const el=document.getElementById('sn-'+r.id);if(el)el.textContent=i+1;});}
+function onDesc(id,v){
+  const r=rows.find(x=>x.id===id);if(!r)return;r.name=v;
+  const m=stk.find(s=>s.n===v);
+  if(m){r.hsn=m.h;r.gst=m.g;
+    const h=document.getElementById('h-'+id);if(h)h.value=m.h;
+    const g=document.getElementById('g-'+id);if(g)g.value=m.g;
+  }
+  calc();
+}
+function onF(id,field,v){
+  const r=rows.find(x=>x.id===id);if(!r)return;
+  if(field==='name')r.name=v;
+  else if(field==='hsn')r.hsn=v;
+  else if(field==='unit')r.unit=v;
+  else r[field]=parseFloat(v)||0;
+  if(['buy','gst','qty'].includes(field))calc();
+  if(field==='rate'){r.rate=parseFloat(v)||0;calcTot();}
+}
+
+// CALC
+let C={};
+function fmt(n){return n.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g,',');}
+function fmtI(n){return Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g,',');}
+function calc(){
+  const tgt=parseFloat(document.getElementById('targetP')?.value)||0;
+  let tbg=0;
+  rows.forEach(r=>{r.buyGst=(r.buy*r.qty)*(1+r.gst/100);tbg+=r.buyGst;});
+  if(mode==='calc'&&tgt>0&&tbg>0){
+    rows.forEach(r=>{
+      const w=r.buyGst/tbg;
+      const rTgt=tgt*w;
+      r.rate=r.qty>0?(rTgt/(1+r.gst/100))/r.qty:0;
+      const el=document.getElementById('rt-'+r.id);if(el)el.value=r.rate.toFixed(2);
+    });
+  }
+  calcTot();
+  // Update buy totals
+  rows.forEach(r=>{
+    const el=document.getElementById('bt-'+r.id);
+    if(el)el.textContent=cur+fmt(r.buy*r.qty);
+  });
+  // Sidebar
+  const sell=rows.reduce((s,r)=>s+r.rate*r.qty*(1+r.gst/100),0);
+  const profit=Math.round(sell)-Math.round(tbg);
+  const pPct=tbg>0?((profit/tbg)*100).toFixed(1):0;
+  let f5=0,f18=0;
+  rows.forEach(r=>{const sg=r.rate*r.qty*(1+r.gst/100);if(r.gst==5)f5+=sg;else f18+=sg;});
+  const gt=f5+f18;
+  const p5=gt>0?f5/gt*100:0,p18=gt>0?f18/gt*100:0;
+  if(document.getElementById('cBuy')){
+    document.getElementById('cBuy').textContent=cur+fmtI(tbg);
+    document.getElementById('cProfit').textContent=cur+fmtI(profit);
+    document.getElementById('c5').textContent=cur+fmtI(f5);
+    document.getElementById('c18').textContent=cur+fmtI(f18);
+    document.getElementById('rb5').style.width=p5+'%';
+    document.getElementById('rb18').style.width=p18+'%';
+    document.getElementById('rp5').textContent='5%: '+p5.toFixed(1)+'%';
+    document.getElementById('rp18').textContent='18%: '+p18.toFixed(1)+'%';
+    const al=document.getElementById('ralt');
+    if(rows.length===0){al.className='ralt rwn';al.textContent='Items add karo';}
+    else if(p5>=68&&p5<=74){al.className='ralt rok';al.textContent=`✅ Ratio sahi! 5%: ${p5.toFixed(1)}% | 18%: ${p18.toFixed(1)}%`;}
+    else if(p5<68){al.className='ralt rwn';al.textContent=`⚠ 5% wala ${p5.toFixed(1)}% — Panels badhao`;}
+    else{al.className='ralt rwn';al.textContent=`⚠ 5% wala ${p5.toFixed(1)}% — zyada hai`;}
+  }
+}
+function calcTot(){
+  let tax=0,tc_=0,ts=0;
+  rows.forEach(r=>{
+    const l=r.rate*r.qty;
+    r.cgst=l*(r.gst/2)/100;r.sgst=l*(r.gst/2)/100;r.line=l;r.tot=l+r.cgst+r.sgst;
+    tax+=l;tc_+=r.cgst;ts+=r.sgst;
+    const cg=document.getElementById('cg-'+r.id);if(cg)cg.textContent=fmt(r.cgst);
+    const sg=document.getElementById('sg-'+r.id);if(sg)sg.textContent=fmt(r.sgst);
+    const am=document.getElementById('am-'+r.id);if(am)am.textContent=fmt(r.tot);
+  });
+  const raw=tax+tc_+ts,grand=Math.round(raw);
+  C={tax,tc:tc_,ts,raw,grand};
+  setT('ft',fmt(tax));setT('fcg',fmt(tc_));setT('fsg',fmt(ts));
+  setT('fcg2',fmt(tc_));setT('fsg2',fmt(ts));
+  setT('fro',fmt(grand-raw));
+  setT('fgr',cur+' '+fmtI(grand));
+  setT('fwd',toW(grand)+' Only');
+  // GST summary
+  const bkts={};rows.forEach(r=>{if(!bkts[r.gst])bkts[r.gst]={t:0,c:0,s:0};bkts[r.gst].t+=r.line;bkts[r.gst].c+=r.cgst;bkts[r.gst].s+=r.sgst;});
+  const gb=document.getElementById('gb');
+  if(gb)gb.innerHTML=Object.entries(bkts).sort((a,b)=>a[0]-b[0]).map(([r,v])=>
+    `<tr><td>${r}%</td><td>${fmt(v.t)}</td><td>${fmt(v.c)}</td><td>${fmt(v.s)}</td><td>${fmt(v.c+v.s)}</td></tr>`
+  ).join('');
+  setT('gst',fmt(tax));setT('gcg',fmt(tc_));setT('gsg',fmt(ts));setT('gtt',fmt(tc_+ts));
+}
+function setT(id,v){const el=document.getElementById(id);if(el)el.textContent=v;}
+
+// META
+let md={invNo:'',date:'',eway:'',qref:''};
+let cd={name:'',rel:'',addr:'',mob:'',aadhar:'',app:'',gstin:''};
+function applyMeta(){
+  md.invNo=document.getElementById('invNo')?.value||'';
+  md.date=document.getElementById('invDate')?.value||'';
+  md.eway=document.getElementById('invEway')?.value||'';
+  md.qref=document.getElementById('quotRef')?.value||'';
+  renderDoc();
+}
+function applyCust(){
+  cd={
+    name:document.getElementById('cName').value,
+    rel:document.getElementById('cRel').value,
+    addr:document.getElementById('cAddr').value,
+    mob:document.getElementById('cMob').value,
+    aadhar:document.getElementById('cAadhar').value,
+    app:document.getElementById('cApp').value,
+    gstin:document.getElementById('cGstin').value,
+  };
+  renderDoc();
+}
+function custHtml(){
+  if(!cd.name)return'—';
+  return`<b>${cd.name}</b><br>${cd.rel?cd.rel+'<br>':''}${(cd.addr||'').replace(/\n/g,'<br>')}${cd.mob?'<br>Mobile: '+cd.mob:''}${cd.aadhar?'<br>Aadhaar: '+cd.aadhar:''}${cd.app?'<br>App No.: '+cd.app:''}${cd.gstin?'<br>GSTIN: '+cd.gstin:''}`;
+}
+function fmtDate(s){return s?new Date(s).toLocaleDateString('en-IN',{day:'2-digit',month:'2-digit',year:'numeric'}):'-';}
+
+// FIRM HTML
+function firmBlockHtml(nameColor='#1a3a6e',textColor='#555'){
+  const logo=fd.logo?`<img src="${fd.logo}" style="max-height:52px;max-width:110px;object-fit:contain">`:
+    `<div style="font-size:36px;color:${nameColor}">☀</div>`;
+  return`<div style="display:flex;align-items:center;gap:12px">
+    ${logo}
+    <div>
+      <div style="font-size:19px;font-weight:800;color:${nameColor};line-height:1.2">${fd.name}</div>
+      <div style="font-size:10px;color:${textColor};margin-top:2px">${fd.tag||'Solar Energy Solutions | PM Surya Ghar Empanelled'}</div>
+      <div style="font-size:10px;color:${textColor}">${fd.addr}</div>
+      <div style="font-size:10px;color:${textColor}">Tel.: ${fd.mob} | GSTIN: ${fd.gstin}${fd.email?' | '+fd.email:''}</div>
+    </div>
+  </div>`;
+}
+
+// META ROW
+function metaRowHtml(cls){
+  return`<div class="${cls}">
+    <span><b>Ref. No.:</b> ${md.invNo||'—'}</span>
+    <span><b>Date:</b> ${fmtDate(md.date)}</span>
+    <span><b>E-Way Bill:</b> ${md.eway||'-'}</span>
+    <span><b>Place of Supply:</b> Rajasthan (08)</span>
+    <span><b>Reverse Charge:</b> N</span>
+  </div>`;
+}
+
+// CUST BOX
+function custBoxHtml(cb,h4c){
+  const ch=custHtml();
+  return`<div style="display:flex;gap:7px;margin-bottom:9px">
+    <div class="${cb}" style="flex:1"><div class="${h4c}" style="font-size:10px;font-weight:700;margin-bottom:3px">BILLED TO</div><div style="font-size:11px;line-height:1.8">${ch}</div></div>
+    <div class="${cb}" style="flex:1"><div class="${h4c}" style="font-size:10px;font-weight:700;margin-bottom:3px">SHIPPED TO</div><div style="font-size:11px;line-height:1.8">${ch}</div></div>
+  </div>`;
+}
+
+// TABLE
+function tableHtml(thCls,scCls,grCls){
+  const bDisp=mode==='calc'?'':'none';
+  const opts=stk.map(s=>`<option value="${s.n}" data-h="${s.h}" data-g="${s.g}">`).join('');
+  const thead=`<thead><tr>
+    <th class="${thCls}" style="width:22px">S.N.</th>
+    <th class="${thCls}">Description</th>
+    <th class="${thCls}" style="width:64px">HSN</th>
+    <th class="${thCls}" style="width:40px">GST%</th>
+    <th class="${thCls}" style="width:40px">Qty</th>
+    <th class="${thCls}" style="width:46px">Unit</th>
+    <th class="${thCls} bc" style="width:70px;display:${bDisp};background:#7a5000">Buying Rate</th>
+    <th class="${thCls}" style="width:70px">${mode==='calc'?'Sell Rate':'Rate ('+cur+')'}</th>
+    <th class="${thCls}" style="width:60px">CGST(${cur})</th>
+    <th class="${thCls}" style="width:60px">SGST(${cur})</th>
+    <th class="${thCls}" style="width:78px">Total(${cur})</th>
+    <th class="${thCls}" style="width:22px"></th>
+  </tr></thead>`;
+  const tbody='<tbody>'+rows.map((r,i)=>`<tr id="tr-${r.id}">
+    <td class="sn-cell" id="sn-${r.id}" style="text-align:center;width:22px;color:#888">${i+1}</td>
+    <td style="min-width:140px">
+      <datalist id="dl-${r.id}">${opts}</datalist>
+      <input type="text" id="d-${r.id}" list="dl-${r.id}" value="${r.name}" placeholder="Select item..."
+        style="min-width:130px;font-size:10px" onchange="onDesc(${r.id},this.value)" oninput="onDesc(${r.id},this.value)">
+      <textarea class="sta" placeholder="Serial no / extra..."></textarea>
+    </td>
+    <td><input type="text" id="h-${r.id}" value="${r.hsn}" style="width:62px" oninput="onF(${r.id},'hsn',this.value)"></td>
+    <td style="text-align:center">
+      <select id="g-${r.id}" style="width:40px" onchange="onF(${r.id},'gst',this.value)">
+        <option value="5" ${r.gst==5?'selected':''}>5%</option>
+        <option value="18" ${r.gst==18?'selected':''}>18%</option>
+        <option value="12" ${r.gst==12?'selected':''}>12%</option>
+        <option value="0" ${r.gst==0?'selected':''}>0%</option>
+      </select>
+    </td>
+    <td><input type="number" id="q-${r.id}" value="${r.qty}" style="width:38px" oninput="onF(${r.id},'qty',this.value)"></td>
+    <td>
+      <select id="u-${r.id}" style="width:44px" onchange="onF(${r.id},'unit',this.value)">
+        <option>Pcs.</option><option>NOS</option><option>Set</option>
+        <option>Mtr.</option><option>Kg.</option><option>Job</option><option>Ltr.</option>
+      </select>
+    </td>
+    <td class="bc" style="display:${bDisp}">
+      <input type="number" id="b-${r.id}" value="${r.buy}" style="color:#7a5000;font-weight:700;text-align:right;width:66px" oninput="onF(${r.id},'buy',this.value)">
+      <div id="bt-${r.id}" style="font-size:9px;color:#b07030;text-align:right">${cur}${fmt(r.buy*r.qty)}</div>
+    </td>
+    <td class="${scCls}"><input type="number" id="rt-${r.id}" value="${r.rate.toFixed(2)}" style="width:66px" oninput="onF(${r.id},'rate',this.value)"></td>
+    <td class="cgst-c" id="cg-${r.id}" style="text-align:right;width:60px">${fmt(r.cgst)}</td>
+    <td class="sgst-c" id="sg-${r.id}" style="text-align:right;width:60px">${fmt(r.sgst)}</td>
+    <td class="ac2" id="am-${r.id}">${fmt(r.tot)}</td>
+    <td style="text-align:center"><button class="btn brd" onclick="delRow(${r.id})">×</button></td>
+  </tr>`).join('')+'</tbody>';
+  const tfoot=`<tfoot>
+    <tr class="tfr"><td colspan="7" style="text-align:right">Taxable Total</td>
+      <td id="ft" style="text-align:right"></td>
+      <td id="fcg" style="text-align:right;color:#1a7a4a"></td>
+      <td id="fsg" style="text-align:right;color:#1a7a4a"></td>
+      <td id="fsub" style="text-align:right"></td><td></td></tr>
+    <tr><td colspan="9" style="text-align:right;font-size:9px">Add: CGST</td>
+      <td colspan="2" id="fcg2" style="text-align:right;font-weight:700;color:#1a7a4a"></td><td></td></tr>
+    <tr><td colspan="9" style="text-align:right;font-size:9px">Add: SGST</td>
+      <td colspan="2" id="fsg2" style="text-align:right;font-weight:700;color:#1a7a4a"></td><td></td></tr>
+    <tr><td colspan="9" style="text-align:right;font-size:9px">Rounded Off</td>
+      <td colspan="2" id="fro" style="text-align:right;color:#999"></td><td></td></tr>
+    <tr class="${grCls}">
+      <td colspan="7" id="fwd" style="font-size:10px;padding:5px 4px"></td>
+      <td style="padding:5px 4px">Grand Total</td>
+      <td colspan="3" id="fgr" style="text-align:center;font-size:14px;padding:5px 4px"></td>
+      <td></td>
+    </tr>
+  </tfoot>`;
+  return`<table class="itbl">${thead}${tbody}${tfoot}</table>`;
+}
+
+function gstSumHtml(thCls,footCls){
+  return`<div class="gsw">
+    <table class="gtbl">
+      <tr><th class="${thCls}">Tax Rate</th><th class="${thCls}">Taxable</th><th class="${thCls}">CGST</th><th class="${thCls}">SGST</th><th class="${thCls}">Total Tax</th></tr>
+      <tbody id="gb"></tbody>
+      <tr class="${footCls}"><td>Total</td><td id="gst"></td><td id="gcg"></td><td id="gsg"></td><td id="gtt"></td></tr>
+    </table>
+  </div>`;
+}
+
+function footerHtml(bkCls,sigCol){
+  return`<div class="iftr">
+    <div class="bkstr ${bkCls}"><b>Bank:</b> ${bk.name} | <b>A/C:</b> ${bk.ac} | <b>IFSC:</b> ${bk.ifsc} | <b>Branch:</b> ${bk.branch}</div>
+    <div style="border:1px solid #ddd;padding:4px 8px;border-radius:3px;font-size:9.5px;text-align:center;margin-bottom:4px"><b>Declaration:</b> ${tc.decl}</div>
+    <div style="font-size:9px;color:#666;margin-bottom:4px"><b>T&C:</b> ${tc.tnc}</div>
+    <div class="sigr" style="color:${sigCol}">
+      <div class="sigb" style="color:${sigCol}"><div class="sigl" style="border-color:${sigCol}"></div>Receiver's Signature</div>
+      <div class="sigb" style="color:${sigCol}"><div class="sigl" style="border-color:${sigCol}"></div><b>For ${fd.name}</b><br>Authorised Signatory</div>
+    </div>
+  </div>`;
+}
+
+// RENDER
+function renderDoc(){
+  let html='';
+  if(docType==='invoice'||docType==='quotation'){
+    const isQ=docType==='quotation';
+    const docLabel=isQ?'QUOTATION / ESTIMATE':'TAX INVOICE';
+    if(tpl===1){
+      html=`<div class="t1">
+        <div class="t1h">${firmBlockHtml('#1a3a6e','#555')}<div style="text-align:right"><div class="t1b">${docLabel}</div><div style="font-size:10px;color:#666;margin-top:3px">Original Copy</div></div></div>
+        ${metaRowHtml('t1meta')}${custBoxHtml('t1cb','t1cbh')}
+        ${tableHtml('gth1','sc',isQ?'grq gr1':'gr1')}${gstSumHtml('gth1','gfoot')}${footerHtml('bk1','#222')}
+      </div>`;
+    }else if(tpl===2){
+      html=`<div class="t2">
+        <div class="t2h">${firmBlockHtml('#fff','rgba(255,255,255,.85)')}<div style="text-align:right"><div class="t2b">${docLabel}</div><div style="font-size:10px;opacity:.7;margin-top:3px">Original Copy</div></div></div>
+        <div class="t2gold"></div>
+        <div class="t2bd">${metaRowHtml('t2meta')}${custBoxHtml('t2cb','t2cbh')}
+        ${tableHtml('gth2','sc',isQ?'grq gr2':'gr2')}${gstSumHtml('gth2','gfoot')}${footerHtml('bk2','#222')}</div>
+      </div>`;
+    }else{
+      html=`<div class="t3">
+        <div class="t3h">${firmBlockHtml('#f0c040','#7a9cc8')}<div style="text-align:right"><div class="t3b">${docLabel}</div><div style="font-size:10px;color:#7a9cc8;margin-top:3px">Original Copy</div></div></div>
+        <div class="t3bd">${metaRowHtml('t3meta')}${custBoxHtml('t3cb','t3cbh')}
+        ${tableHtml('gth3','sc3',isQ?'grq gr3':'gr3')}${gstSumHtml('gth3','gfoot3')}${footerHtml('bk3','#e8f0fe')}</div>
+      </div>`;
+    }
+  } else if(docType==='wcc'){
+    // WCC
+    const wccKw=document.getElementById('wccKw')?.value||'—';
+    const wccInv=document.getElementById('wccInv')?.value||'—';
+    const wccPanel=document.getElementById('wccPanel')?.value||'—';
+    const wccDate=document.getElementById('wccDate')?.value;
+    html=`<div class="wcc">
+      <div class="wcc-hdr">
+        ${firmBlockHtml('#1a3a6e','#555')}
+      </div>
+      <div class="wcc-title">Work Completion Certificate</div>
+      <p style="font-size:12px;margin-bottom:16px;line-height:1.8">
+        This is to certify that <b>${fd.name}</b> — GSTIN: ${fd.gstin}, ${fd.addr} has successfully completed the Solar Power Plant installation as per the following details:
+      </p>
+      ${[['EPC NAME',fd.name],['NAME OF SITE OWNER',cd.name||''],['SITE ADDRESS',(cd.addr||'').replace(/\n/g,', ')],['INVERTER MAKE',wccInv],['SOLAR PANEL MAKE',wccPanel],['PLANT CAPACITY',wccKw+' KW'],['AADHAAR NO.',cd.aadhar||''],['APP NO. (PM SURYA GHAR)',cd.app||'']].map(([l,v])=>`
+        <div class="wcc-row">
+          <div class="wcc-lbl">${l} —</div>
+          <div class="wcc-val">${v||'&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;'}</div>
+        </div>`).join('')}
+      <div class="wcc-notice">THIS IS INFORMING YOU THAT THE SOLAR POWER PLANT HAS BEEN COMPLETED ON — <b>${wccDate?fmtDate(wccDate):'_____/_____/_______'}</b></div>
+      <div class="sigr" style="margin-top:24px;color:#222">
+        <div class="sigb" style="color:#222"><div class="sigl" style="border-color:#222"></div>Customer Signature</div>
+        <div class="sigb" style="color:#222"><div class="sigl" style="border-color:#222"></div><b>For ${fd.name}</b><br>Authorised Signatory</div>
+      </div>
+    </div>`;
+  } else if(docType==='estimate'){
+    // BANK ESTIMATE
+    html=`<div class="t1" style="border-top:4px solid #1a3a6e">
+      <div class="t1h">${firmBlockHtml('#1a3a6e','#555')}<div style="text-align:right"><div class="t1b">ESTIMATE</div><div style="font-size:10px;color:#666;margin-top:2px">For Bank Loan / Margin Money</div><div style="font-size:10px;color:#666">Not a Tax Invoice</div></div></div>
+      ${metaRowHtml('t1meta')}
+      ${custBoxHtml('t1cb','t1cbh')}
+      ${tableHtml('gth1','sc','gr1')}${gstSumHtml('gth1','gfoot')}
+      <div class="iftr">
+        <div class="bkstr bk1"><b>Bank:</b> ${bk.name} | <b>A/C:</b> ${bk.ac} | <b>IFSC:</b> ${bk.ifsc} | <b>Branch:</b> ${bk.branch}</div>
+        <div style="font-size:9.5px;color:#555;border:1px solid #ddd;border-radius:3px;padding:4px 8px;margin-bottom:4px;text-align:center">
+          PM Surya Ghar subsidy credited directly to customer's bank account. All equipment carries manufacturer's warranty. This is an estimate for bank loan/margin money purposes only.
+        </div>
+        <div style="font-size:9px;color:#666"><b>T&C:</b> ${tc.tnc}</div>
+        <div class="sigr" style="color:#222">
+          <div class="sigb" style="color:#222"><div class="sigl" style="border-color:#222"></div>Receiver's Signature</div>
+          <div class="sigb" style="color:#222"><div class="sigl" style="border-color:#222"></div><b>For ${fd.name}</b><br>Authorised Signatory</div>
+        </div>
+      </div>
+    </div>`;
+  }
+  document.getElementById('invCont').innerHTML=html;
+  // Restore handlers
+  rows.forEach(r=>{
+    const d=document.getElementById('d-'+r.id);if(d){d.value=r.name;d.onchange=()=>onDesc(r.id,d.value);d.oninput=()=>onDesc(r.id,d.value);}
+    const q=document.getElementById('q-'+r.id);if(q){q.value=r.qty;q.oninput=()=>onF(r.id,'qty',q.value);}
+    const b=document.getElementById('b-'+r.id);if(b){b.value=r.buy;b.oninput=()=>onF(r.id,'buy',b.value);}
+    const rt=document.getElementById('rt-'+r.id);if(rt){rt.value=r.rate.toFixed(2);rt.oninput=()=>onF(r.id,'rate',rt.value);}
+    const g=document.getElementById('g-'+r.id);if(g){g.value=r.gst;g.onchange=()=>onF(r.id,'gst',g.value);}
+    const h=document.getElementById('h-'+r.id);if(h){h.value=r.hsn;h.oninput=()=>onF(r.id,'hsn',h.value);}
+  });
+  document.querySelectorAll('.bc').forEach(el=>el.style.display=mode==='calc'?'':'none');
+  calcTot();
+}
+
+function autoResize(el){el.style.height='auto';el.style.height=el.scrollHeight+'px';}
+
+function doPrint(){
+  if(!checkLim())return;
+  incCnt();
+  window.print();
+}
+
+// WORDS
+function toW(n){
+  if(!n||n===0)return'Zero';
+  const o=['','One','Two','Three','Four','Five','Six','Seven','Eight','Nine','Ten','Eleven','Twelve','Thirteen','Fourteen','Fifteen','Sixteen','Seventeen','Eighteen','Nineteen'];
+  const t=['','','Twenty','Thirty','Forty','Fifty','Sixty','Seventy','Eighty','Ninety'];
+  function h(n){if(n<20)return o[n];if(n<100)return t[Math.floor(n/10)]+(n%10?' '+o[n%10]:'');return o[Math.floor(n/100)]+' Hundred'+(n%100?' '+h(n%100):'');}
+  let w='';
+  if(n>=10000000){w+=h(Math.floor(n/10000000))+' Crore ';n%=10000000;}
+  if(n>=100000){w+=h(Math.floor(n/100000))+' Lakh ';n%=100000;}
+  if(n>=1000){w+=h(Math.floor(n/1000))+' Thousand ';n%=1000;}
+  if(n>0)w+=h(n);
+  return'Rupees '+w.trim();
+}
+
+function initApp(){
+  loadStk();loadFirm();
+  document.getElementById('invDate').value=new Date().toISOString().split('T')[0];
+  document.getElementById('wccDate').value=new Date().toISOString().split('T')[0];
+  document.getElementById('icnt').textContent=getCnt();
+  addRow();addRow();addRow();
+  renderDoc();calc();
+}
+</script>
+</body>
+</html>

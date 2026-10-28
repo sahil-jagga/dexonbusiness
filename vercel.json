@@ -1,0 +1,9 @@
+{
+  "rewrites": [
+    { "source": "/api/download-offline", "destination": "/Nexbill_Solar_Pro_Offline.html" },
+    { "source": "/api/download-zip", "destination": "/nexbill-website-deploy.zip" },
+    { "source": "/download-offline", "destination": "/Nexbill_Solar_Pro_Offline.html" },
+    { "source": "/download-zip", "destination": "/nexbill-website-deploy.zip" },
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
+}

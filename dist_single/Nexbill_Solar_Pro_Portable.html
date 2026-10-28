@@ -1,0 +1,734 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nexbill Solar Pro — Professional Invoice, Quotation, WCC & 70:30 GST Tool</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0a1628;--sf:#122040;--sf2:#1a2d50;--bd:#1e3a6e;
+  --ac:#f0c040;--gr:#3dba7a;--rd:#e05252;--bl:#4a8fe8;--pu:#9b59b6;
+  --tx:#e8f0fe;--tx2:#7a9cc8;
+}
+body{font-family:'Segoe UI',Roboto,Arial,sans-serif;background:var(--bg);color:var(--tx);min-height:100vh}
+
+/* LOCK SCREEN */
+#lockScreen{position:fixed;inset:0;background:linear-gradient(135deg,#0a1628,#122040,#1a2d50);display:flex;align-items:center;justify-content:center;z-index:9999;flex-direction:column;gap:12px;padding:16px}
+.lbox{background:#122040;border:2px solid var(--ac);border-radius:20px;padding:32px;text-align:center;max-width:440px;width:100%;box-shadow:0 12px 40px rgba(0,0,0,0.6)}
+.llogo{font-size:48px;margin-bottom:6px;color:var(--ac)}
+.ltitle{font-size:26px;font-weight:900;color:var(--ac);letter-spacing:-0.5px}
+.lsub{font-size:12px;color:var(--tx2);margin-bottom:18px}
+.linput{width:100%;background:#0a1628;border:2px solid var(--bd);border-radius:10px;color:var(--ac);font-size:16px;font-weight:700;padding:12px 14px;margin-bottom:10px;text-align:center;letter-spacing:2px}
+.linput:focus{outline:none;border-color:var(--ac)}
+.lbtn{width:100%;background:var(--ac);color:#0a1628;border:none;border-radius:10px;padding:13px;font-size:15px;font-weight:800;cursor:pointer;transition:.2s}
+.lbtn:hover{background:#fadb66}
+.lerr{color:var(--rd);font-size:12px;margin-top:8px;display:none;font-weight:600}
+.linfo{background:#0a1628;border:1px solid var(--bd);border-radius:10px;padding:12px;font-size:11px;color:var(--tx2);margin-top:14px;line-height:1.8;text-align:left}
+.linfo b{color:var(--ac)}
+
+/* UPGRADE MODAL */
+#upgModal{position:fixed;inset:0;background:rgba(0,0,0,.8);display:none;align-items:center;justify-content:center;z-index:9998;padding:16px}
+.ubox{background:#122040;border:2px solid var(--ac);border-radius:18px;padding:28px;max-width:460px;width:100%;text-align:center;box-shadow:0 10px 40px rgba(0,0,0,.6)}
+.ubox h2{font-size:22px;color:var(--ac);margin-bottom:6px}
+.ubox p{font-size:12px;color:var(--tx2);margin-bottom:16px;line-height:1.6}
+.uplans{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px}
+.uplan{background:#091728;border:1px solid var(--bd);border-radius:12px;padding:14px;cursor:pointer;text-align:left;transition:.2s}
+.uplan:hover{border-color:var(--ac);transform:translateY(-2px)}
+.uplan .upn{font-size:13px;font-weight:700}
+.uplan .upp{font-size:22px;font-weight:900;color:var(--ac);margin:4px 0}
+.uplan .upd{font-size:10px;color:var(--tx2)}
+.uplan .upf{font-size:10px;color:var(--tx2);margin-top:6px;line-height:1.7}
+
+/* ADMIN MODAL */
+#admModal{position:fixed;inset:0;background:rgba(0,0,0,.85);display:none;align-items:center;justify-content:center;z-index:9997;padding:16px}
+.abox{background:#0d1f38;border:2px solid var(--ac);border-radius:18px;padding:24px;max-width:640px;width:100%;max-height:85vh;overflow-y:auto;text-align:left}
+.atbl{width:100%;border-collapse:collapse;font-size:11px;margin-top:12px}
+.atbl th{background:#091728;color:var(--tx2);padding:8px;border:1px solid var(--bd);text-align:left}
+.atbl td{padding:8px;border:1px solid var(--bd);vertical-align:middle}
+
+/* APP LAYOUT */
+#app{display:none}
+.layout{display:flex;height:100vh;overflow:hidden}
+
+/* SIDEBAR */
+.sb{width:320px;background:#0d1f38;border-right:1px solid var(--bd);display:flex;flex-direction:column;flex-shrink:0;overflow-y:auto}
+.sb-top{padding:14px;border-bottom:1px solid var(--bd);background:#091728;display:flex;justify-content:space-between;align-items:center}
+.sb-logo{font-size:17px;font-weight:900;color:var(--ac);display:flex;align-items:center;gap:6px}
+.plan-badge{display:inline-block;background:rgba(240,192,64,.15);border:1px solid var(--ac);border-radius:20px;padding:2px 8px;font-size:10px;color:var(--ac);font-weight:700;cursor:pointer}
+.sb-body{flex:1;padding:12px;overflow-y:auto}
+.sbs{margin-bottom:14px;background:#091728/60;border-radius:8px}
+.sbs h3{font-size:10px;color:var(--tx2);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;padding-bottom:4px;border-bottom:1px solid var(--bd);font-weight:700}
+.fl{margin-bottom:8px}
+.fl label{font-size:10px;color:var(--tx2);display:block;margin-bottom:3px;font-weight:600}
+.fl input,.fl select,.fl textarea{width:100%;background:#091728;border:1px solid var(--bd);border-radius:6px;color:var(--tx);font-size:12px;padding:6px 8px}
+.fl input:focus,.fl select:focus,.fl textarea:focus{outline:none;border-color:var(--ac)}
+
+/* TABS */
+.mode-tabs{display:flex;gap:4px;margin-bottom:10px}
+.mt{flex:1;padding:7px 4px;border:none;border-radius:6px;cursor:pointer;font-size:11px;font-weight:700;transition:.2s}
+.mt.on{background:var(--ac);color:#0a1628}
+.mt.off{background:#091728;color:var(--tx2);border:1px solid var(--bd)}
+
+/* CALC */
+.tbox{background:#091728;border:2px solid var(--ac);border-radius:10px;padding:10px;margin-bottom:10px}
+.tbox label{font-size:11px;color:var(--ac);font-weight:800;display:flex;justify-content:space-between;margin-bottom:4px}
+.tbox input{width:100%;background:#0a1628;border:1px solid var(--ac);border-radius:6px;color:var(--ac);font-size:18px;font-weight:900;padding:6px 10px}
+.cstats{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px}
+.cs{background:#0a1628;border-radius:6px;padding:6px 8px;font-size:10px;color:var(--tx2);border:1px solid rgba(255,255,255,.05)}
+.cs .cv{font-size:13px;font-weight:800;margin-top:2px}
+
+.rbox{background:#091728;border:1px solid var(--bd);border-radius:8px;padding:9px;margin-bottom:10px}
+.rbar{height:12px;background:#0a1628;border-radius:6px;overflow:hidden;display:flex;margin:6px 0}
+.rb5{height:100%;background:var(--gr);transition:width .3s}
+.rb18{height:100%;background:#e07820;transition:width .3s}
+.rlbls{display:flex;justify-content:space-between;font-size:10px;font-weight:700}
+.ralt{font-size:10px;padding:4px 8px;border-radius:4px;margin-top:6px;font-weight:600}
+.rok{background:rgba(61,186,122,.15);color:var(--gr)}
+.rwn{background:rgba(240,192,64,.15);color:var(--ac)}
+
+/* TEMPLATE */
+.tgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;margin-bottom:10px}
+.tc{background:#091728;border:2px solid var(--bd);border-radius:8px;padding:6px;cursor:pointer;text-align:center;transition:.2s}
+.tc.on{border-color:var(--ac);background:rgba(240,192,64,.12)}
+.tc .ti{font-size:18px;margin-bottom:2px}
+.tc .tn{font-size:10px;color:var(--tx2);font-weight:700}
+
+/* STOCK */
+.si{background:#091728;border-radius:5px;padding:4px 8px;margin-bottom:3px;display:flex;align-items:center;gap:4px;font-size:11px}
+.sin{flex:1;color:var(--tx);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sig{color:var(--gr);font-size:10px;font-weight:700;min-width:26px}
+.sid{background:none;border:none;color:var(--rd);cursor:pointer;font-size:14px;padding:0 3px;line-height:1}
+
+/* BTNS */
+.btn{padding:6px 12px;border:none;border-radius:6px;cursor:pointer;font-size:11px;font-weight:700;display:inline-flex;align-items:center;gap:4px;transition:.15s}
+.bac{background:var(--ac);color:#0a1628}
+.bac:hover{background:#fadb66}
+.bgr{background:var(--gr);color:#fff}
+.bbl{background:var(--bl);color:#fff}
+.brd{background:var(--rd);color:#fff;padding:2px 6px;font-size:11px}
+.bot{background:transparent;border:1px solid var(--bd);color:var(--tx2)}
+.bot:hover{color:#fff;border-color:var(--ac)}
+.bpr{background:var(--ac);color:#0a1628;font-weight:900;font-size:12px;padding:8px 16px}
+.bfu{width:100%;margin-top:6px;justify-content:center}
+
+/* MAIN */
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.toolbar{background:#091728;border-bottom:1px solid var(--bd);padding:8px 16px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.toolbar h3{flex:1;font-size:13px;font-weight:800;color:var(--ac);display:flex;align-items:center;gap:6px}
+.icnt{background:#091728;border:1px solid var(--bd);border-radius:6px;padding:4px 10px;font-size:11px;color:var(--tx2)}
+.icnt b{color:var(--ac)}
+
+/* DOC TABS */
+.dtabs{display:flex;border-bottom:1px solid var(--bd);background:#091728;padding:0 14px}
+.dt{padding:10px 16px;border:none;background:transparent;color:var(--tx2);cursor:pointer;font-size:12px;font-weight:700;border-bottom:2px solid transparent;margin-bottom:-1px;transition:.2s}
+.dt.on{color:var(--ac);border-bottom-color:var(--ac)}
+
+.wrap{flex:1;overflow-y:auto;padding:16px;background:#0d1b2e}
+.cbanner{background:rgba(240,192,64,.12);border:1px solid var(--ac);border-radius:6px;padding:7px 12px;font-size:11px;color:var(--ac);margin-bottom:12px;display:none}
+
+/* DOCUMENT TEMPLATES */
+.t1{background:#fff;max-width:850px;margin:0 auto;padding:24px;color:#222;font-size:11px;box-shadow:0 6px 30px rgba(0,0,0,.4);border-radius:8px}
+.t1h{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #1a3a6e;padding-bottom:12px;margin-bottom:12px}
+.t1fn{font-size:20px;font-weight:900;color:#1a3a6e}
+.t1b{background:#1a3a6e;color:#fff;font-size:11px;font-weight:800;padding:4px 12px;border-radius:4px}
+
+.t2{background:#fff;max-width:850px;margin:0 auto;color:#222;font-size:11px;box-shadow:0 6px 30px rgba(0,0,0,.4);border-radius:8px;overflow:hidden}
+.t2h{background:linear-gradient(135deg,#0d2a5e,#1a4a9e);color:#fff;padding:18px 22px;display:flex;justify-content:space-between;align-items:flex-start}
+.t2gold{background:#f0c040;height:4px}
+.t2bd{padding:16px 22px}
+
+.t3{background:#0d1f38;max-width:850px;margin:0 auto;color:#e8f0fe;font-size:11px;box-shadow:0 6px 30px rgba(0,0,0,.6);border-radius:8px;overflow:hidden}
+.t3h{background:#091728;border-bottom:2px solid #f0c040;padding:18px 22px;display:flex;justify-content:space-between;align-items:flex-start}
+.t3bd{padding:16px 22px}
+
+/* TABLE */
+.itbl{width:100%;border-collapse:collapse;font-size:10px;margin-bottom:8px}
+.itbl th{padding:5px 4px;text-align:center;font-size:9px;font-weight:700;border:1px solid rgba(0,0,0,.15)}
+.itbl td{border:1px solid rgba(0,0,0,.1);padding:3px 4px;vertical-align:middle}
+.itbl td input,.itbl td select{width:100%;border:none;outline:none;background:transparent;font-size:10px;color:inherit}
+.bc{background:#fff9e6;color:#7a5000;font-weight:700;text-align:right}
+.sc{background:#e8f8e8;color:#1a7a4a;font-weight:700;text-align:right}
+
+@media print{
+  .sb,.toolbar,.dtabs,.btn,.cbanner,.bc,.bpr,#lockScreen,#upgModal,#admModal,.print-hide{display:none!important}
+  .print-show{display:inline!important}
+  div.print-show{display:block!important}
+  .wrap{padding:0;background:#fff}
+  .main{display:block}
+  body{background:#fff;color:#000}
+  select {
+    -webkit-appearance: none !important;
+    -moz-appearance: none !important;
+    appearance: none !important;
+    border: none !important;
+    background: transparent !important;
+  }
+}
+.print-show{display:none}
+</style>
+</head>
+<body>
+
+<!-- LOCK SCREEN -->
+<div id="lockScreen">
+  <div class="lbox">
+    <div class="llogo">☀</div>
+    <div class="ltitle">NEXBILL SOLAR PRO</div>
+    <div class="lsub">Dedicated PM Surya Ghar 70:30 & Billing SaaS V2.5</div>
+    <input type="text" id="licKey" class="linput" placeholder="ENTER LICENSE KEY" maxlength="32" oninput="this.value=this.value.toUpperCase()">
+    <button class="lbtn" onclick="verifyLic()">🔓 Unlock Tool</button>
+    <div class="lerr" id="lerr">❌ Invalid or expired license key.</div>
+    <div class="linfo">
+      <b>Free Trial Key:</b> TRIAL-NEXBILL-2026 (5 invoices/mo)<br>
+      <b>Owner Pro Key:</b> NXB-PRO-SAHIL-001 (Unlimited)<br>
+      <b>Commercial Purchase:</b> Call / WhatsApp <b>94298-42000</b>
+    </div>
+  </div>
+</div>
+
+<!-- UPGRADE MODAL -->
+<div id="upgModal">
+  <div class="ubox">
+    <h2>🚀 Trial Limit Reached</h2>
+    <p>Aapki 5 invoices/month free trial limit ho gayi hai.<br>Upgrade karein for unlimited billing & WCC certificates!</p>
+    <div class="uplans">
+      <div class="uplan">
+        <div class="upn">⭐ Pro Plan</div>
+        <div class="upp">₹999</div>
+        <div class="upd">/ 1 Year</div>
+        <div class="upf">✅ Unlimited Invoices<br>✅ All 3 Templates<br>✅ WCC & Bank Loan<br>✅ Customer Directory</div>
+      </div>
+      <div class="uplan">
+        <div class="upn">🚀 Business</div>
+        <div class="upp">₹1,999</div>
+        <div class="upd">/ 1 Year</div>
+        <div class="upf">✅ Everything in Pro<br>✅ Multi-Firm Support<br>✅ GST Return Reports<br>✅ Priority Phone Support</div>
+      </div>
+    </div>
+    <p style="font-size:12px;color:var(--ac);font-weight:700">📞 Call/WhatsApp: 94298-42000</p>
+    <button class="btn bot" onclick="document.getElementById('upgModal').style.display='none'" style="margin-top:10px">Close</button>
+  </div>
+</div>
+
+<!-- ADMIN MODAL -->
+<div id="admModal">
+  <div class="abox">
+    <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--bd);padding-bottom:10px">
+      <h3 style="color:var(--ac);font-size:15px;font-weight:900">🔑 Admin License Key Manager</h3>
+      <button class="btn bot" onclick="document.getElementById('admModal').style.display='none'">✕</button>
+    </div>
+    <div style="margin-top:12px;font-size:11px;color:var(--tx2)">
+      Yahan se aap kisi bhi client ki key create, revoke (block), ya delete kar sakte hain:
+    </div>
+    <div id="admLicList"></div>
+    <div style="margin-top:14px;border-top:1px solid var(--bd);padding-top:10px">
+      <div style="font-size:11px;font-weight:700;color:var(--ac);margin-bottom:6px">+ Issue New Key</div>
+      <div style="display:grid;grid-template-columns:1fr 100px 90px;gap:6px">
+        <input id="admNewClient" placeholder="Client / Firm Name" style="background:#091728;border:1px solid var(--bd);padding:6px;border-radius:4px;color:#fff;font-size:11px">
+        <select id="admNewPlan" style="background:#091728;border:1px solid var(--bd);padding:6px;border-radius:4px;color:#fff;font-size:11px">
+          <option value="Pro">Pro (₹999)</option>
+          <option value="Business">Business</option>
+          <option value="Trial">Trial</option>
+        </select>
+        <button class="btn bac" onclick="admAddKey()">+ Generate</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app">
+<div class="layout">
+
+<!-- SIDEBAR -->
+<div class="sb">
+  <div class="sb-top">
+    <div class="sb-logo">☀ NEXBILL SOLAR</div>
+    <div class="plan-badge" id="planBadge" onclick="changeLic()" title="Click to change license">Trial ↗</div>
+  </div>
+
+  <div class="sb-body">
+    <div class="sbs">
+      <h3>Mode</h3>
+      <div class="mode-tabs">
+        <button class="mt on" id="mCalc" onclick="setMode('calc')">🧮 70:30 Calc</button>
+        <button class="mt off" id="mInv" onclick="setMode('invoice')">👤 Customer</button>
+        <button class="mt off" id="mSet" onclick="setMode('settings')">⚙️ Firm</button>
+      </div>
+    </div>
+
+    <!-- CALC MODE -->
+    <div id="pCalc" class="sbs">
+      <div class="tbox">
+        <label><span>🎯 Target Bill (w/GST)</span><span style="font-size:9px;color:var(--tx2)">PM Surya Ghar</span></label>
+        <input type="number" id="targetP" value="180000" oninput="calc()">
+        <button class="btn bac bfu" style="margin-top:8px" onclick="loadPreset3KW()">⚡ Load 3kW Surya Ghar Kit</button>
+      </div>
+
+      <div class="cstats">
+        <div class="cs"><div>Buying (Cost)</div><div class="cv" id="cBuy" style="color:var(--tx2)">₹0</div></div>
+        <div class="cs"><div>Estimated Profit</div><div class="cv" id="cProfit" style="color:var(--gr)">₹0</div></div>
+        <div class="cs"><div>5% GST Total</div><div class="cv" id="c5" style="color:var(--gr)">₹0</div></div>
+        <div class="cs"><div>18% GST Total</div><div class="cv" id="c18" style="color:#e07820">₹0</div></div>
+      </div>
+
+      <div class="rbox" style="margin-top:10px">
+        <div style="font-size:10px;color:var(--tx2);margin-bottom:4px;font-weight:700">70:30 GST Compliance (Selling Ratio)</div>
+        <div class="rbar"><div class="rb5" id="rb5" style="width:0%"></div><div class="rb18" id="rb18" style="width:0%"></div></div>
+        <div class="rlbls"><span style="color:var(--gr)" id="rp5">5%: 0%</span><span style="color:#e07820" id="rp18">18%: 0%</span></div>
+        <div class="ralt rwn" id="ralt">Items load karein</div>
+      </div>
+    </div>
+
+    <!-- CUSTOMER & WCC MODE -->
+    <div id="pInv" style="display:none" class="sbs">
+      <div class="fl"><label>Site Owner / Customer Name</label><input id="cName" oninput="applyCust()"></div>
+      <div class="fl"><label>Father / Husband Name (S/O or W/O)</label><input id="cRel" placeholder="S/O Ramesh Kumar" oninput="applyCust()"></div>
+      <div class="fl"><label>Site Address</label><textarea id="cAddr" rows="2" oninput="applyCust()"></textarea></div>
+      <div class="fl"><label>Mobile Phone</label><input id="cMob" oninput="applyCust()"></div>
+      <div class="fl"><label>Aadhaar No.</label><input id="cAadhar" oninput="applyCust()"></div>
+      <div class="fl"><label>PM Surya Ghar Application No.</label><input id="cApp" placeholder="RJ-SG-2026-XXXXX" oninput="applyCust()"></div>
+      <div class="fl"><label>Electricity K-Number / Consumer No.</label><input id="cKno" oninput="applyCust()"></div>
+      <div class="fl"><label>Sanctioned Load</label><input id="cLoad" placeholder="3.00 kW" oninput="applyCust()"></div>
+    </div>
+
+    <!-- SETTINGS MODE -->
+    <div id="pSet" style="display:none" class="sbs">
+      <div class="fl"><label>Firm Name</label><input id="fName" oninput="saveFirm()"></div>
+      <div class="fl"><label>Address</label><textarea id="fAddr" rows="2" oninput="saveFirm()"></textarea></div>
+      <div class="fl"><label>Mobile / Tel</label><input id="fMob" oninput="saveFirm()"></div>
+      <div class="fl"><label>GSTIN</label><input id="fGstin" oninput="saveFirm()"></div>
+      <div class="fl"><label>Bank Name</label><input id="bkName" oninput="saveFirm()"></div>
+      <div class="fl"><label>Account No.</label><input id="bkAc" oninput="saveFirm()"></div>
+      <div class="fl"><label>IFSC Code</label><input id="bkIfsc" oninput="saveFirm()"></div>
+      <button class="btn bac bfu" onclick="openAdmin()">🔑 Admin License Manager</button>
+    </div>
+
+    <!-- TEMPLATE SELECTOR -->
+    <div class="sbs">
+      <h3>Invoice Theme</h3>
+      <div class="tgrid">
+        <div class="tc on" id="tc1" onclick="setTpl(1)"><div class="ti">📄</div><div class="tn">Clean</div></div>
+        <div class="tc" id="tc2" onclick="setTpl(2)"><div class="ti">🔵</div><div class="tn">Blue</div></div>
+        <div class="tc" id="tc3" onclick="setTpl(3)"><div class="ti">🌙</div><div class="tn">Dark</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MAIN WORKSPACE -->
+<div class="main">
+  <div class="toolbar">
+    <h3 id="ttl">🧮 Nexbill Solar Pro Workspace</h3>
+    <div class="icnt">Month Invoices: <b id="icnt">0</b>/<b id="ilimit">5</b></div>
+    <button class="btn bgr" onclick="addRow()">+ Row</button>
+    <button class="btn bot" onclick="clearRows()">🗑 Clear</button>
+    <button class="btn bot" onclick="shareWA()">📱 WhatsApp</button>
+    <button class="btn bpr" onclick="doPrint()">🖨 Print / PDF</button>
+  </div>
+
+  <!-- DOCUMENT TABS -->
+  <div class="dtabs">
+    <button class="dt on" id="dt1" onclick="setDocType('invoice')">📄 Tax Invoice</button>
+    <button class="dt" id="dt2" onclick="setDocType('quotation')">📋 Solar Quotation</button>
+    <button class="dt" id="dt3" onclick="setDocType('wcc')">✅ WCC Certificate</button>
+    <button class="dt" id="dt4" onclick="setDocType('estimate')">🏦 Bank Loan Estimate</button>
+  </div>
+
+  <div class="wrap">
+    <div class="cbanner" id="cbanner">🧮 <b>Calculator Mode:</b> Buying rate enter karein → Selling auto-calculate hogi!</div>
+    <div id="invCont"></div>
+  </div>
+</div>
+
+</div>
+</div>
+
+<script>
+// LICENSE STORE
+let LICS = JSON.parse(localStorage.getItem('nb_master_lics') || 'null') || {
+  'TRIAL-NEXBILL-2026':{plan:'Free Trial',inv:5,active:true,exp:'2028-12-31',name:'Demo Trial'},
+  'NXB-PRO-SAHIL-001':{plan:'Pro ⭐',inv:9999,active:true,exp:'2030-12-31',name:'Jagga Enterprises'},
+  'NXB-BIZ-DEMO-2026':{plan:'Business 🚀',inv:9999,active:true,exp:'2028-12-31',name:'Commercial Vendor'},
+};
+function saveMasterLics(){localStorage.setItem('nb_master_lics',JSON.stringify(LICS));}
+
+let lic=null;
+function verifyLic(){
+  const k=document.getElementById('licKey').value.trim().toUpperCase();
+  const l=LICS[k];
+  if(!l || !l.active){
+    document.getElementById('lerr').textContent = !l ? '❌ Invalid key' : '🚫 License has been REVOKED by admin';
+    document.getElementById('lerr').style.display='block';
+    return;
+  }
+  lic=l;
+  localStorage.setItem('nb_key',k);
+  document.getElementById('lockScreen').style.display='none';
+  document.getElementById('app').style.display='block';
+  document.getElementById('planBadge').textContent=l.plan+' ↗';
+  document.getElementById('ilimit').textContent=l.inv>100?'∞':l.inv;
+  initApp();
+}
+
+function changeLic(){
+  const k=prompt('Enter License Key:');
+  if(!k)return;
+  document.getElementById('licKey').value=k.trim().toUpperCase();
+  verifyLic();
+}
+
+function openAdmin(){
+  const p=prompt('Enter Admin Security PIN (default: sahil2026):');
+  if(p!=='sahil2026' && p!=='94298') { alert('❌ Wrong PIN!'); return; }
+  renderAdminList();
+  document.getElementById('admModal').style.display='flex';
+}
+
+function renderAdminList(){
+  let h='<table class="atbl"><tr><th>Client</th><th>Key</th><th>Plan</th><th>Status</th><th>Action</th></tr>';
+  Object.entries(LICS).forEach(([k,v])=>{
+    h+=`<tr>
+      <td><b>${v.name||'Client'}</b></td>
+      <td style="font-family:monospace;color:var(--ac)">${k}</td>
+      <td>${v.plan}</td>
+      <td>${v.active?'<span style="color:var(--gr)">Active</span>':'<span style="color:var(--rd)">Revoked</span>'}</td>
+      <td>
+        <button class="btn" style="background:${v.active?'var(--rd)':'var(--gr)'};padding:2px 6px;font-size:10px" onclick="admToggle('${k}')">${v.active?'Revoke':'Activate'}</button>
+        <button class="btn brd" style="margin-left:3px" onclick="admDel('${k}')">Del</button>
+      </td>
+    </tr>`;
+  });
+  h+='</table>';
+  document.getElementById('admLicList').innerHTML=h;
+}
+
+function admToggle(k){
+  if(LICS[k]){ LICS[k].active=!LICS[k].active; saveMasterLics(); renderAdminList(); }
+}
+function admDel(k){
+  if(confirm('Delete key '+k+'?')){ delete LICS[k]; saveMasterLics(); renderAdminList(); }
+}
+function admAddKey(){
+  const n=document.getElementById('admNewClient').value.trim()||'New Client';
+  const p=document.getElementById('admNewPlan').value;
+  const k='NXB-'+p.toUpperCase().substr(0,3)+'-'+Math.floor(1000+Math.random()*9000);
+  LICS[k]={plan:p,inv:p==='Trial'?5:9999,active:true,exp:'2028-12-31',name:n};
+  saveMasterLics();
+  renderAdminList();
+  alert('✅ Created Key: '+k);
+}
+
+// MONTH INVOICE COUNTER
+function mKey(){const d=new Date();return `nb_cnt_${d.getFullYear()}_${d.getMonth()}`;}
+function getCnt(){return parseInt(localStorage.getItem(mKey())||'0');}
+function incCnt(){localStorage.setItem(mKey(),getCnt()+1);document.getElementById('icnt').textContent=getCnt();}
+function checkLim(){
+  if(lic && lic.inv<9999 && getCnt()>=lic.inv){
+    document.getElementById('upgModal').style.display='flex';
+    return false;
+  }
+  return true;
+}
+
+// FIRM & STOCKS
+let fd={name:'JAGGA ENTERPRISES & CO.',addr:'Vinoba Basti 390B, Near TLT Coaching, Sri Ganganagar, Rajasthan',mob:'94298-42000 | 94283-42000',gstin:'08ERPPK7078L1ZS',tag:'Solar Energy Solutions | PM Surya Ghar Empanelled'};
+let bk={name:'Punjab National Bank',ac:'6156002100006195',ifsc:'PUNB0615600',branch:'Sadhuali Cantt, Sri Ganganagar'};
+let cd={name:'Sh. Rajesh Kumar Verma',rel:'S/O Rameshwar Dayal',addr:'Ward No 12, Purani Abadi, Sri Ganganagar',mob:'98290-XXXXX',aadhar:'XXXX-XXXX-8941',app:'RJ-SG-2026-789104',kno:'1402/2390/4910',load:'3.00 kW'};
+
+function saveFirm(){
+  fd.name=document.getElementById('fName').value;
+  fd.addr=document.getElementById('fAddr').value;
+  fd.mob=document.getElementById('fMob').value;
+  fd.gstin=document.getElementById('fGstin').value;
+  bk.name=document.getElementById('bkName').value;
+  bk.ac=document.getElementById('bkAc').value;
+  bk.ifsc=document.getElementById('bkIfsc').value;
+  renderDoc();
+}
+
+function applyCust(){
+  cd.name=document.getElementById('cName').value;
+  cd.rel=document.getElementById('cRel').value;
+  cd.addr=document.getElementById('cAddr').value;
+  cd.mob=document.getElementById('cMob').value;
+  cd.aadhar=document.getElementById('cAadhar').value;
+  cd.app=document.getElementById('cApp').value;
+  cd.kno=document.getElementById('cKno').value;
+  cd.load=document.getElementById('cLoad').value;
+  renderDoc();
+}
+
+// ITEMS & 70:30 CALCULATION
+let rows=[],rc=0;
+let mode='calc',docType='invoice',tpl=1;
+
+function setMode(m){
+  mode=m;
+  ['Calc','Inv','Set'].forEach(x=>{
+    document.getElementById('m'+x).className='mt '+(m===x.toLowerCase()||(m==='calc'&&x==='Calc')||(m==='invoice'&&x==='Inv')||(m==='settings'&&x==='Set')?'on':'off');
+  });
+  document.getElementById('pCalc').style.display=m==='calc'?'':'none';
+  document.getElementById('pInv').style.display=m==='invoice'?'':'none';
+  document.getElementById('pSet').style.display=m==='settings'?'':'none';
+  document.getElementById('cbanner').style.display=m==='calc'?'block':'none';
+  document.querySelectorAll('.bc').forEach(el=>el.style.display=m==='calc'?'':'none');
+  if(m==='calc')calc();
+}
+
+function setDocType(t){
+  docType=t;
+  ['invoice','quotation','wcc','estimate'].forEach((x,i)=>{
+    document.getElementById('dt'+(i+1)).className='dt'+(t===x?' on':'');
+  });
+  renderDoc();
+}
+
+function setTpl(t){
+  tpl=t;
+  [1,2,3].forEach(i=>document.getElementById('tc'+i).className='tc'+(i===t?' on':''));
+  renderDoc();
+}
+
+function loadPreset3KW(){
+  rows=[
+    {id:1,name:'Solar PV Module DCR (ALMM Bifacial 550Wp)',hsn:'85414300',gst:5,qty:6,unit:'NOS',buy:11000,rate:13500},
+    {id:2,name:'Solar Grid-Tied Inverter 3kW (Polycab/Deye)',hsn:'85044090',gst:5,qty:1,unit:'Set',buy:24000,rate:32000},
+    {id:3,name:'MMS GI C-Channel Structure (HDG 80 Micron)',hsn:'73089030',gst:18,qty:1,unit:'Set',buy:12000,rate:17500},
+    {id:4,name:'DC Solar Cable 4 sq.mm Copper (Red & Black)',hsn:'85446020',gst:18,qty:60,unit:'Mtr.',buy:45,rate:65},
+    {id:5,name:'ACDB & DCDB Distribution Box IP65 with SPD',hsn:'85371000',gst:18,qty:1,unit:'Set',buy:5000,rate:7200},
+    {id:6,name:'Chemical Earthing Kit + 2.25M GI Electrode',hsn:'83111000',gst:18,qty:2,unit:'Set',buy:3200,rate:4800},
+    {id:7,name:'Turnkey Installation, Testing & Commissioning',hsn:'9954',gst:18,qty:1,unit:'Job',buy:8000,rate:12000},
+  ];
+  rc=7;
+  renderDoc();
+  calc();
+}
+
+function addRow(){
+  rc++;
+  rows.push({id:rc,name:'',hsn:'85414300',gst:18,qty:1,unit:'NOS',buy:1000,rate:1300});
+  renderDoc();
+}
+function delRow(id){rows=rows.filter(r=>r.id!==id);renderDoc();calc();}
+function clearRows(){if(confirm('Clear all items?')){rows=[];renderDoc();calc();}}
+
+function onF(id,f,v){
+  const r=rows.find(x=>x.id===id);if(!r)return;
+  if(f==='name'||f==='hsn'||f==='unit')r[f]=v;
+  else r[f]=parseFloat(v)||0;
+  calc();
+}
+
+function fmt(n){return (n||0).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g,',');}
+function fmtI(n){return Math.round(n||0).toString().replace(/\B(?=(\d{3})+(?!\d))/g,',');}
+
+function calc(){
+  const tgt=parseFloat(document.getElementById('targetP')?.value)||0;
+  let tbg=0;
+  rows.forEach(r=>{r.buyGst=(r.buy*r.qty)*(1+r.gst/100);tbg+=r.buyGst;});
+  
+  if(mode==='calc'&&tgt>0&&tbg>0){
+    rows.forEach(r=>{
+      const w=r.buyGst/tbg;
+      r.rate=r.qty>0?((tgt*w)/(1+r.gst/100))/r.qty:0;
+      const el=document.getElementById('rt-'+r.id);if(el)el.value=r.rate.toFixed(2);
+    });
+  }
+
+  let sell=0,f5=0,f18=0;
+  rows.forEach(r=>{
+    const line=r.rate*r.qty;
+    const g=line*(r.gst/100);
+    sell+=line+g;
+    if(r.gst===5)f5+=line+g;else if(r.gst===18)f18+=line+g;
+  });
+
+  const profit=Math.round(sell-tbg);
+  const gt=f5+f18;
+  const p5=gt>0?f5/gt*100:0;
+  const p18=gt>0?f18/gt*100:0;
+
+  if(document.getElementById('cBuy')){
+    document.getElementById('cBuy').textContent='₹'+fmtI(tbg);
+    document.getElementById('cProfit').textContent='₹'+fmtI(profit);
+    document.getElementById('c5').textContent='₹'+fmtI(f5);
+    document.getElementById('c18').textContent='₹'+fmtI(f18);
+    document.getElementById('rb5').style.width=p5+'%';
+    document.getElementById('rb18').style.width=p18+'%';
+    document.getElementById('rp5').textContent='5%: '+p5.toFixed(1)+'%';
+    document.getElementById('rp18').textContent='18%: '+p18.toFixed(1)+'%';
+    
+    const al=document.getElementById('ralt');
+    if(p5>=68 && p5<=74){al.className='ralt rok';al.textContent=`✅ Ratio Perfect: 5% is ${p5.toFixed(1)}% | 18% is ${p18.toFixed(1)}%`;}
+    else if(p5<68){al.className='ralt rwn';al.textContent=`⚠ 5% wala ${p5.toFixed(0)}% hai — Panels badhao`;}
+    else{al.className='ralt rwn';al.textContent=`⚠ 5% wala ${p5.toFixed(0)}% zyada hai`;}
+  }
+}
+
+function renderDoc(){
+  let html='';
+  let totalTaxable=0,totalCgst=0,totalSgst=0;
+  rows.forEach(r=>{
+    const line=r.rate*r.qty;
+    const cg=line*(r.gst/2)/100;
+    totalTaxable+=line;totalCgst+=cg;totalSgst+=cg;
+  });
+  const grand=Math.round(totalTaxable+totalCgst+totalSgst);
+
+  const firmHeader=`<div style="display:flex;justify-content:space-between;align-items:flex-start">
+    <div>
+      <div style="font-size:20px;font-weight:900;color:#1a3a6e">${fd.name}</div>
+      <div style="font-size:10px;color:#555;margin-top:2px">${fd.tag}</div>
+      <div style="font-size:10px;color:#555">${fd.addr}</div>
+      <div style="font-size:10px;color:#555"><b>Tel:</b> ${fd.mob} | <b>GSTIN:</b> ${fd.gstin}</div>
+    </div>
+    <div style="text-align:right">
+      <div style="background:#1a3a6e;color:#fff;padding:4px 12px;border-radius:4px;font-weight:800;font-size:11px">
+        ${docType==='invoice'?'TAX INVOICE':docType==='quotation'?'SOLAR QUOTATION':docType==='wcc'?'WORK COMPLETION':'BANK LOAN ESTIMATE'}
+      </div>
+      <div style="font-size:10px;color:#666;margin-top:2px">Original Copy</div>
+    </div>
+  </div>`;
+
+  const metaRow=`<div style="background:#f5f7ff;border:1px solid #dde;border-radius:4px;padding:6px 10px;display:flex;gap:14px;font-size:10px;margin:10px 0">
+    <span><b>Doc No:</b> JE/26-27/001</span>
+    <span><b>Date:</b> ${new Date().toLocaleDateString('en-IN')}</span>
+    <span><b>Place of Supply:</b> Rajasthan (08)</span>
+    <span><b>State:</b> Rajasthan</span>
+  </div>`;
+
+  const custBox=`<div style="display:flex;gap:8px;margin-bottom:10px">
+    <div style="flex:1;border:1px solid #ddd;border-radius:4px;padding:8px">
+      <div style="font-weight:800;color:#1a3a6e;margin-bottom:4px">BILLED TO (SITE OWNER)</div>
+      <div><b>${cd.name}</b> (${cd.rel})</div>
+      <div>${cd.addr}</div>
+      <div>Mobile: ${cd.mob} | Aadhaar: ${cd.aadhar}</div>
+      <div style="color:#d97706;font-weight:700">Surya Ghar App No: ${cd.app}</div>
+    </div>
+    <div style="flex:1;border:1px solid #ddd;border-radius:4px;padding:8px">
+      <div style="font-weight:800;color:#1a3a6e;margin-bottom:4px">PLANT SITE DETAILS</div>
+      <div>Consumer K-No: <b>${cd.kno}</b></div>
+      <div>Sanctioned Load: <b>${cd.load}</b></div>
+      <div>Solar Net-Metered Rooftop Grid Installation</div>
+    </div>
+  </div>`;
+
+  const tableHead=`<thead><tr style="background:#1a3a6e;color:#fff">
+    <th style="padding:4px">#</th>
+    <th style="text-align:left;padding:4px">Item Description</th>
+    <th>HSN</th><th>GST</th><th>Qty</th><th>Unit</th>
+    <th class="bc" style="display:${mode==='calc'?'':'none'}">Buy Rate</th>
+    <th>Rate (₹)</th><th>CGST</th><th>SGST</th><th>Total (₹)</th>
+    <th class="print:hidden"></th>
+  </tr></thead>`;
+
+  const tableBody='<tbody>'+rows.map((r,i)=>`<tr>
+    <td style="text-align:center">${i+1}</td>
+    <td>
+      <input class="print-hide" value="${r.name}" style="font-weight:600" oninput="onF(${r.id},'name',this.value)">
+      <div class="print-show" style="font-weight:700;word-break:break-word;white-space:pre-wrap;line-height:1.3">${r.name||'—'}</div>
+    </td>
+    <td style="text-align:center">
+      <input class="print-hide" value="${r.hsn}" style="text-align:center" oninput="onF(${r.id},'hsn',this.value)">
+      <span class="print-show">${r.hsn}</span>
+    </td>
+    <td style="text-align:center">
+      <select class="print-hide" onchange="onF(${r.id},'gst',this.value)">
+        <option value="5" ${r.gst===5?'selected':''}>5%</option>
+        <option value="18" ${r.gst===18?'selected':''}>18%</option>
+      </select>
+      <span class="print-show" style="font-weight:700">${r.gst}%</span>
+    </td>
+    <td style="text-align:center">
+      <input class="print-hide" type="number" value="${r.qty}" style="text-align:center" oninput="onF(${r.id},'qty',this.value)">
+      <span class="print-show" style="font-weight:700">${r.qty}</span>
+    </td>
+    <td style="text-align:center">
+      <input class="print-hide" value="${r.unit}" style="text-align:center" oninput="onF(${r.id},'unit',this.value)">
+      <span class="print-show">${r.unit}</span>
+    </td>
+    <td class="bc" style="display:${mode==='calc'?'':'none'}">
+      <input type="number" value="${r.buy}" style="text-align:right" oninput="onF(${r.id},'buy',this.value)">
+    </td>
+    <td class="sc">
+      <input class="print-hide" type="number" id="rt-${r.id}" value="${r.rate.toFixed(2)}" style="text-align:right" oninput="onF(${r.id},'rate',this.value)">
+      <span class="print-show" style="font-weight:700">${fmt(r.rate)}</span>
+    </td>
+    <td style="text-align:right">${fmt(r.rate*r.qty*(r.gst/2)/100)}</td>
+    <td style="text-align:right">${fmt(r.rate*r.qty*(r.gst/2)/100)}</td>
+    <td style="text-align:right;font-weight:800">${fmt(r.rate*r.qty*(1+r.gst/100))}</td>
+    <td class="print-hide" style="text-align:center"><button class="btn brd" onclick="delRow(${r.id})">×</button></td>
+  </tr>`).join('')+'</tbody>';
+
+  const tableFoot=`<tfoot>
+    <tr style="background:#f5f5f5;font-weight:700">
+      <td colspan="${mode==='calc'?7:6}" style="text-align:right">Taxable Subtotal:</td>
+      <td style="text-align:right">₹${fmt(totalTaxable)}</td>
+      <td style="text-align:right">₹${fmt(totalCgst)}</td>
+      <td style="text-align:right">₹${fmt(totalSgst)}</td>
+      <td style="text-align:right">₹${fmt(grand)}</td>
+      <td></td>
+    </tr>
+    <tr style="background:#1a3a6e;color:#fff;font-weight:900">
+      <td colspan="${mode==='calc'?7:6}" style="padding:8px">Grand Total (Rupees):</td>
+      <td colspan="5" style="text-align:right;font-size:14px;padding:8px">₹ ${fmtI(grand)}</td>
+      <td></td>
+    </tr>
+  </tfoot>`;
+
+  const footer=`<div style="margin-top:12px;border-top:1px solid #ddd;padding-top:8px;font-size:10px">
+    <div style="background:#f0f4ff;padding:6px;border-radius:4px">
+      <b>Bank:</b> ${bk.name} | <b>A/C:</b> ${bk.ac} | <b>IFSC:</b> ${bk.ifsc} | <b>Branch:</b> ${bk.branch}
+    </div>
+    <div style="margin-top:20px;display:flex;justify-content:space-between">
+      <div style="text-align:center;width:150px"><div style="border-top:1px solid #000;margin-bottom:3px"></div>Receiver Signature</div>
+      <div style="text-align:center;width:180px"><div style="font-weight:700;margin-bottom:18px">For ${fd.name}</div><div style="border-top:1px solid #000;margin-bottom:3px"></div>Authorised Signatory</div>
+    </div>
+  </div>`;
+
+  html=`<div class="t1">${firmHeader}${metaRow}${custBox}<table class="itbl">${tableHead}${tableBody}${tableFoot}</table>${footer}</div>`;
+  document.getElementById('invCont').innerHTML=html;
+}
+
+function shareWA(){
+  let grand=0;
+  rows.forEach(r=>{grand+=r.rate*r.qty*(1+r.gst/100);});
+  const text=encodeURIComponent(`*⚡ Tax Invoice - ${fd.name}*\nCustomer: ${cd.name}\nPlant: ${cd.load}\nAmount: ₹${fmtI(grand)}\nBank: ${bk.name} | A/C: ${bk.ac} | IFSC: ${bk.ifsc}\nContact: ${fd.mob}`);
+  window.open(`https://wa.me/?text=${text}`,'_blank');
+}
+
+function doPrint(){
+  if(!checkLim())return;
+  incCnt();
+  window.print();
+}
+
+function initApp(){
+  document.getElementById('fName').value=fd.name;
+  document.getElementById('fAddr').value=fd.addr;
+  document.getElementById('fMob').value=fd.mob;
+  document.getElementById('fGstin').value=fd.gstin;
+  document.getElementById('bkName').value=bk.name;
+  document.getElementById('bkAc').value=bk.ac;
+  document.getElementById('bkIfsc').value=bk.ifsc;
+  document.getElementById('cName').value=cd.name;
+  document.getElementById('cRel').value=cd.rel;
+  document.getElementById('cAddr').value=cd.addr;
+  document.getElementById('cMob').value=cd.mob;
+  document.getElementById('cAadhar').value=cd.aadhar;
+  document.getElementById('cApp').value=cd.app;
+  document.getElementById('cKno').value=cd.kno;
+  document.getElementById('cLoad').value=cd.load;
+  document.getElementById('icnt').textContent=getCnt();
+  loadPreset3KW();
+}
+
+window.onload=()=>{
+  const k=localStorage.getItem('nb_key');
+  if(k&&LICS[k]&&LICS[k].active){document.getElementById('licKey').value=k;verifyLic();}
+};
+</script>
+</body>
+</html>

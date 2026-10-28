@@ -1,0 +1,53 @@
+[
+  {
+    "key": "TRIAL-NEXBILL-2026",
+    "clientName": "Public Trial User",
+    "clientPhone": "94298-42000",
+    "plan": "Trial",
+    "expiry": "2028-12-31",
+    "invoiceLimit": 5,
+    "isActive": true,
+    "createdAt": "2026-10-21T03:32:37.572Z",
+    "totalInvoicesGenerated": 0,
+    "notes": "Free trial key for public testing (5 bills/mo)",
+    "lastUsedAt": "2026-10-21T03:32:42.582Z"
+  },
+  {
+    "key": "NXB-PRO-SAHIL-001",
+    "clientName": "Jagga Enterprises (Owner Pro)",
+    "clientPhone": "94298-42000",
+    "plan": "Pro",
+    "expiry": "2030-12-31",
+    "invoiceLimit": 99999,
+    "isActive": true,
+    "createdAt": "2026-10-21T03:32:37.573Z",
+    "totalInvoicesGenerated": 0,
+    "notes": "Lifetime Owner Pro Key",
+    "lastUsedAt": "2026-10-21T06:26:37.180Z"
+  },
+  {
+    "key": "NXB-BIZ-DEMO-2026",
+    "clientName": "Jagga Enterprises (Owner Business Plan)",
+    "clientPhone": "94283-42000",
+    "plan": "Business",
+    "expiry": "2030-12-31",
+    "invoiceLimit": 99999,
+    "isActive": true,
+    "createdAt": "2026-10-21T03:32:37.573Z",
+    "totalInvoicesGenerated": 0,
+    "notes": "Full Business Suite Key (Unlimited Firms, CRM, GSTR-1, Branding)",
+    "lastUsedAt": "2026-10-21T13:39:20.972Z"
+  },
+  {
+    "key": "NXB-BIZ-VZJQ2-531",
+    "clientName": "VIP Business Client",
+    "clientPhone": "94298-42000",
+    "plan": "Business",
+    "expiry": "2030-12-31",
+    "invoiceLimit": 99999,
+    "isActive": true,
+    "createdAt": "2026-10-21T13:39:00.000Z",
+    "totalInvoicesGenerated": 0,
+    "notes": "Client Business License Key"
+  }
+]

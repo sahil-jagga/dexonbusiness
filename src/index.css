@@ -1,0 +1,50 @@
+@import "tailwindcss";
+
+@layer utilities {
+  @keyframes spin-slow {
+    from {
+      transform: rotate(0deg);
+    }
+    to {
+      transform: rotate(360deg);
+    }
+  }
+  .animate-spin-slow {
+    animation: spin-slow 20s linear infinite;
+  }
+}
+
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 8mm;
+  }
+  body {
+    background: #ffffff !important;
+    color: #111827 !important;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+  aside, header, nav, .print\:hidden {
+    display: none !important;
+  }
+  main {
+    padding: 0 !important;
+    margin: 0 !important;
+    background: transparent !important;
+    overflow: visible !important;
+  }
+  select {
+    -webkit-appearance: none !important;
+    -moz-appearance: none !important;
+    appearance: none !important;
+    background: transparent !important;
+    border: none !important;
+    outline: none !important;
+  }
+  input {
+    border: none !important;
+    background: transparent !important;
+    outline: none !important;
+  }
+}

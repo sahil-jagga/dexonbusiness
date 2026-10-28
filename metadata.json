@@ -1,0 +1,6 @@
+{
+  "name": "Nexbill Solar Pro SaaS",
+  "description": "Professional billing, PM Surya Ghar GST 70:30 calculator, WCC generator, quotation system, and zero-cost license management suite for solar EPC vendors.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
