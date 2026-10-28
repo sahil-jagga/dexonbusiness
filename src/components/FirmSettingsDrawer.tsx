@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { FirmInfo, BankInfo, TermsInfo, LicenseInfo } from '../types/solar';
-import { Building2, Landmark, FileText, KeyRound, Upload, Check, PenTool, ShieldCheck } from 'lucide-react';
+import { Building2, Landmark, FileText, KeyRound, Upload, Check, PenTool, ShieldCheck, Hash } from 'lucide-react';
 import { SignaturePadModal } from './SignaturePadModal';
 
 interface FirmSettingsDrawerProps {
@@ -267,6 +267,46 @@ export const FirmSettingsDrawer: React.FC<FirmSettingsDrawerProps> = ({
           </div>
           <p className="text-[10px] text-slate-400 leading-tight">
             Draw your signature using mouse/touch or upload an image. It will print cleanly on Tax Invoices, Quotations & WCC.
+          </p>
+        </div>
+
+        {/* Invoice Auto-Numbering Settings */}
+        <div className="rounded-xl border border-blue-500/30 bg-slate-950/60 p-3 space-y-2.5">
+          <div className="flex items-center justify-between">
+            <label className="text-[11px] font-bold text-blue-300 flex items-center gap-1.5">
+              <Hash className="h-3.5 w-3.5" /> Invoice Auto-Numbering Setup
+            </label>
+            <span className="rounded bg-blue-500/20 px-1.5 py-0.5 text-[9px] font-bold text-blue-300 border border-blue-500/30">
+              No Duplicates
+            </span>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="text-[10px] text-slate-400 block mb-0.5">Prefix / Code</label>
+              <input
+                type="text"
+                placeholder="e.g. JE or INV"
+                value={firm.invoicePrefix || ''}
+                onChange={(e) => onFirmChange({ ...firm, invoicePrefix: e.target.value.toUpperCase() })}
+                className="w-full rounded-lg border border-slate-700 bg-slate-900 px-2.5 py-1 text-xs text-white uppercase font-bold focus:border-amber-400 focus:outline-none"
+              />
+            </div>
+
+            <div>
+              <label className="text-[10px] text-slate-400 block mb-0.5">Start Seq No.</label>
+              <input
+                type="number"
+                min="1"
+                placeholder="e.g. 1 or 101"
+                value={firm.invoiceStartingNumber || ''}
+                onChange={(e) => onFirmChange({ ...firm, invoiceStartingNumber: parseInt(e.target.value, 10) || 1 })}
+                className="w-full rounded-lg border border-slate-700 bg-slate-900 px-2.5 py-1 text-xs text-white font-mono focus:border-amber-400 focus:outline-none"
+              />
+            </div>
+          </div>
+          <p className="text-[10px] text-slate-400 leading-tight">
+            Next invoice numbers will auto-increment based on history records and never produce duplicates.
           </p>
         </div>
       </div>

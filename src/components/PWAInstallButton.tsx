@@ -1,96 +1,153 @@
 import React, { useState } from 'react';
 import { usePWAInstall } from '../hooks/usePWAInstall';
-import { Download, Smartphone, X, Check, Apple } from 'lucide-react';
+import { Smartphone, X, Apple, Monitor, CheckCircle2, DownloadCloud, Sparkles } from 'lucide-react';
 
 export const PWAInstallButton: React.FC<{ compact?: boolean }> = ({ compact = false }) => {
   const { isInstallable, isInstalled, isIOS, install } = usePWAInstall();
-  const [showIOSGuide, setShowIOSGuide] = useState(false);
+  const [showGuideModal, setShowGuideModal] = useState(false);
 
-  // If already running as an installed standalone app, hide the button
+  // If already running inside standalone installed window
   if (isInstalled) {
-    return null;
+    return (
+      <span
+        className="hidden md:inline-flex items-center gap-1 rounded-md border border-emerald-500/30 bg-emerald-950/30 px-2 py-1 text-[10px] font-bold text-emerald-400"
+        title="Nexbill is installed and running as a standalone app"
+      >
+        <CheckCircle2 className="h-3 w-3" />
+        <span>Installed</span>
+      </span>
+    );
   }
 
-  // Chromium / Android / Desktop Install Prompt
-  if (isInstallable) {
-    return (
+  const handleInstallClick = async () => {
+    if (isInstallable) {
+      const outcome = await install();
+      if (!outcome) {
+        setShowGuideModal(true);
+      }
+    } else {
+      setShowGuideModal(true);
+    }
+  };
+
+  return (
+    <>
       <button
-        onClick={install}
-        className={`flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-cyan-500 to-blue-600 font-bold text-white shadow-md shadow-cyan-500/20 hover:brightness-110 active:scale-95 transition ${
+        onClick={handleInstallClick}
+        className={`flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-cyan-500 via-blue-600 to-indigo-600 font-extrabold text-white shadow-md shadow-cyan-500/25 hover:brightness-110 active:scale-95 transition ${
           compact ? 'px-2 py-1 text-[11px]' : 'px-3 py-1.5 text-xs'
         }`}
-        title="Install Nexbill as an app on your phone or computer (Works offline)"
+        title="Install Nexbill directly on your phone or computer as a standalone desktop/mobile app (Works 100% offline)"
       >
-        <Smartphone className="h-3.5 w-3.5 shrink-0" />
+        <Smartphone className="h-3.5 w-3.5 shrink-0 text-cyan-200" />
         <span>Install App</span>
       </button>
-    );
-  }
 
-  // iOS Safari flow (WebKit beforeinstallprompt guide)
-  if (isIOS) {
-    return (
-      <>
-        <button
-          onClick={() => setShowIOSGuide(true)}
-          className={`flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800 text-slate-200 hover:bg-slate-700 transition ${
-            compact ? 'px-2 py-1 text-[11px]' : 'px-2.5 py-1 text-xs'
-          }`}
-          title="Install on iPhone / iPad"
-        >
-          <Apple className="h-3.5 w-3.5 text-white" />
-          <span>Add to Home</span>
-        </button>
-
-        {showIOSGuide && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm">
-            <div className="w-full max-w-sm rounded-2xl border border-slate-700 bg-slate-900 p-6 shadow-2xl text-slate-100">
-              <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-                <div className="flex items-center gap-2">
-                  <Apple className="h-5 w-5 text-white" />
-                  <h3 className="text-sm font-bold text-white">Install on iPhone / iPad</h3>
+      {/* Cross-Platform Installation Guide Modal */}
+      {showGuideModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="w-full max-w-md rounded-3xl border border-cyan-500/40 bg-slate-900 p-6 shadow-2xl text-slate-100">
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-cyan-500 to-blue-600 text-white shadow-md shadow-cyan-500/30">
+                  <DownloadCloud className="h-5 w-5" />
                 </div>
-                <button
-                  onClick={() => setShowIOSGuide(false)}
-                  className="rounded-lg p-1 text-slate-400 hover:bg-slate-800 hover:text-white"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              </div>
-
-              <div className="mt-4 space-y-3 text-xs text-slate-300">
-                <div className="flex items-start gap-2.5">
-                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-amber-500 text-[11px] font-black text-slate-950 shrink-0">
-                    1
-                  </span>
-                  <span>Safari browser toolbar me neeche <b>Share (Tir wala box)</b> icon par tap karein.</span>
-                </div>
-                <div className="flex items-start gap-2.5">
-                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-amber-500 text-[11px] font-black text-slate-950 shrink-0">
-                    2
-                  </span>
-                  <span>List me scroll karein aur <b>"Add to Home Screen" (Home Screen par jodein)</b> par click karein.</span>
-                </div>
-                <div className="flex items-start gap-2.5">
-                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500 text-[11px] font-black text-slate-950 shrink-0">
-                    ✓
-                  </span>
-                  <span>Nexbill Solar Pro bina internet ke aapke phone me app bankar save ho jayega!</span>
+                <div>
+                  <h3 className="text-sm font-black text-white flex items-center gap-1.5">
+                    Install NexBill App
+                    <span className="rounded-full bg-cyan-500/20 px-2 py-0.2 text-[9px] font-bold text-cyan-300 border border-cyan-500/30">
+                      PWA Offline Ready
+                    </span>
+                  </h3>
+                  <p className="text-[11px] text-slate-400">Install without Google Play / App Store — Works 100% Offline</p>
                 </div>
               </div>
-
               <button
-                onClick={() => setShowIOSGuide(false)}
-                className="mt-5 w-full rounded-xl bg-amber-500 py-2 text-xs font-bold text-slate-950 hover:bg-amber-400 shadow-md transition"
+                onClick={() => setShowGuideModal(false)}
+                className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-800 hover:text-white transition"
               >
-                Theek Hai / Samajh Gaya
+                <X className="h-5 w-5" />
               </button>
             </div>
-          </div>
-        )}
-      </>
-    );
-  }
 
-  return null;
+            {/* Instruction Guides */}
+            <div className="mt-4 space-y-3.5 text-xs">
+              {isIOS ? (
+                // iPhone / iPad Guide
+                <div className="rounded-2xl border border-slate-800 bg-slate-950 p-4 space-y-2.5">
+                  <div className="flex items-center gap-2 text-white font-bold">
+                    <Apple className="h-4 w-4 text-slate-200" />
+                    <span>iPhone / iPad (Safari Browser)</span>
+                  </div>
+                  <div className="space-y-2 text-slate-300 text-[11px]">
+                    <div className="flex items-start gap-2">
+                      <span className="flex h-4 w-4 items-center justify-center rounded-full bg-amber-500 text-[10px] font-black text-slate-950 shrink-0">1</span>
+                      <span>Safari browser ke bottom toolbar me <b>Share (Tir wala square icon)</b> par tap karein.</span>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <span className="flex h-4 w-4 items-center justify-center rounded-full bg-amber-500 text-[10px] font-black text-slate-950 shrink-0">2</span>
+                      <span>Neeche scroll karein aur <b>"Add to Home Screen"</b> par click karein.</span>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  {/* Android Phone Guide */}
+                  <div className="rounded-2xl border border-slate-800 bg-slate-950 p-3.5 space-y-2">
+                    <div className="flex items-center gap-2 text-white font-bold text-xs">
+                      <Smartphone className="h-4 w-4 text-emerald-400" />
+                      <span>Android Phone (Chrome / Brave / Edge)</span>
+                    </div>
+                    <div className="space-y-1.5 text-slate-300 text-[11px]">
+                      <div className="flex items-start gap-2">
+                        <span className="flex h-4 w-4 items-center justify-center rounded-full bg-cyan-500 text-[10px] font-black text-slate-950 shrink-0">1</span>
+                        <span>Browser ke top-right me <b>3 Dots (⋮)</b> menu par click karein.</span>
+                      </div>
+                      <div className="flex items-start gap-2">
+                        <span className="flex h-4 w-4 items-center justify-center rounded-full bg-cyan-500 text-[10px] font-black text-slate-950 shrink-0">2</span>
+                        <span>Menu me <b>"Install app"</b> ya <b>"Add to Home screen"</b> chunein.</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Desktop / Laptop Guide */}
+                  <div className="rounded-2xl border border-slate-800 bg-slate-950 p-3.5 space-y-2">
+                    <div className="flex items-center gap-2 text-white font-bold text-xs">
+                      <Monitor className="h-4 w-4 text-cyan-400" />
+                      <span>Computer / Laptop (Chrome / Edge)</span>
+                    </div>
+                    <div className="space-y-1.5 text-slate-300 text-[11px]">
+                      <div className="flex items-start gap-2">
+                        <span className="flex h-4 w-4 items-center justify-center rounded-full bg-blue-500 text-[10px] font-black text-slate-950 shrink-0">1</span>
+                        <span>Browser address bar (URL) ke right side me <b>Install icon (🖥️ / 📥)</b> par click karein.</span>
+                      </div>
+                      <div className="flex items-start gap-2">
+                        <span className="flex h-4 w-4 items-center justify-center rounded-full bg-blue-500 text-[10px] font-black text-slate-950 shrink-0">2</span>
+                        <span>Ya Chrome Menu (3 dots) ➔ <b>Cast, save and share</b> ➔ <b>"Install Nexbill"</b> karein.</span>
+                      </div>
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {/* Offline Benefit Card */}
+              <div className="rounded-xl border border-emerald-500/30 bg-emerald-950/20 p-2.5 flex items-center gap-2 text-emerald-300 text-[11px]">
+                <Sparkles className="h-4 w-4 shrink-0 text-emerald-400" />
+                <span>Install hone ke baad ye app phone/computer me <b>bina internet</b> ke bhi fast khulegi!</span>
+              </div>
+            </div>
+
+            {/* Close Button */}
+            <button
+              onClick={() => setShowGuideModal(false)}
+              className="mt-4 w-full rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 py-2.5 text-xs font-black text-white hover:brightness-110 shadow-lg shadow-cyan-500/20 transition"
+            >
+              Samajh Gaya / Theek Hai
+            </button>
+          </div>
+        </div>
+      )}
+    </>
+  );
 };

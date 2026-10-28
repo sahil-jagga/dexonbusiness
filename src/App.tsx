@@ -37,6 +37,7 @@ import { CountryCode, getCountryConfig } from './config/countries';
 import { authService, tenantStorage, AuthUser } from './lib/supabase';
 import { licenseService, formatIntegerINR } from './services/licenseService';
 import { generateDocumentPdf } from './services/pdfService';
+import { generateNextInvoiceNumber } from './utils/invoiceNumbering';
 import { HeaderNav } from './components/HeaderNav';
 import { SidebarCalculator } from './components/SidebarCalculator';
 import { CustomerDrawer } from './components/CustomerDrawer';
@@ -266,9 +267,11 @@ export default function App() {
         setFirmsList(parsed);
       }
 
+      let loadedFirm = firm;
       const savedFirm = localStorage.getItem('nb_firm_data');
       if (savedFirm) {
-        setFirm(JSON.parse(savedFirm));
+        loadedFirm = JSON.parse(savedFirm);
+        setFirm(loadedFirm);
       }
 
       const savedCustomerList = localStorage.getItem('nb_customer_directory');
@@ -276,10 +279,19 @@ export default function App() {
         setCustomerList(JSON.parse(savedCustomerList));
       }
 
+      let loadedHistory: InvoiceHistoryRecord[] = [];
       const savedHistory = localStorage.getItem('nb_invoices_history');
       if (savedHistory) {
-        setInvoicesHistory(JSON.parse(savedHistory));
+        loadedHistory = JSON.parse(savedHistory);
+        setInvoicesHistory(loadedHistory);
       }
+
+      // Auto-increment invoice number based on firm settings and history to prevent duplicate entry numbers
+      const nextInvNo = generateNextInvoiceNumber(loadedFirm, loadedHistory);
+      setMeta((prev) => ({
+        ...prev,
+        invNo: nextInvNo,
+      }));
 
       const savedAccent = localStorage.getItem('nb_accent_color');
       if (savedAccent) setAccentColor(savedAccent);
@@ -532,9 +544,17 @@ export default function App() {
 
     const grandTotal = Math.round(totalTaxable + totalCgst + totalSgst);
 
+    const guaranteedInvNo = meta.invNo && meta.invNo.trim()
+      ? meta.invNo.trim()
+      : generateNextInvoiceNumber(firm, invoicesHistory);
+
+    if (!meta.invNo || meta.invNo !== guaranteedInvNo) {
+      setMeta((prev) => ({ ...prev, invNo: guaranteedInvNo }));
+    }
+
     const newRecord: InvoiceHistoryRecord = {
       id: 'inv_' + Date.now(),
-      invNo: meta.invNo || 'JE/26-27/' + String(invoicesHistory.length + 1).padStart(3, '0'),
+      invNo: guaranteedInvNo,
       date: meta.date || new Date().toISOString().split('T')[0],
       docType,
       customerName: customer.name || 'Valued Customer',
@@ -713,6 +733,8 @@ export default function App() {
   const handleSelectFirmFromModal = (selected: FirmInfo) => {
     setFirm(selected);
     localStorage.setItem('nb_firm_data', JSON.stringify(selected));
+    const nextInvNo = generateNextInvoiceNumber(selected, invoicesHistory);
+    setMeta((prev) => ({ ...prev, invNo: nextInvNo }));
     setIsMultiFirmOpen(false);
   };
 
@@ -868,16 +890,7 @@ export default function App() {
     }
     setItems([]);
     setTargetPrice(0);
-    const nextNum = invoicesHistory.length + 1;
-    const firmPrefix = firm.name && firm.name !== 'My Business Firm'
-      ? firm.name
-          .split(' ')
-          .filter((w) => w.length > 0)
-          .map((w) => w[0].toUpperCase())
-          .slice(0, 3)
-          .join('')
-      : 'INV';
-    const newInvNo = `${firmPrefix || 'INV'}/26-27/${String(nextNum).padStart(3, '0')}`;
+    const newInvNo = generateNextInvoiceNumber(firm, invoicesHistory);
     setMeta((prev) => ({
       ...prev,
       invNo: newInvNo,

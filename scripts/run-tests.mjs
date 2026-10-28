@@ -197,6 +197,40 @@ it('detects tampering in key payload', () => {
 });
 
 // -------------------------------------------------------------
+// 7. Auto-Numbering & Duplicate Entry Prevention
+// -------------------------------------------------------------
+console.log('\n--- Suite 7: Auto-Numbering & Duplicate Entry Prevention ---');
+
+import { generateNextInvoiceNumber, parseInvoiceSequenceNumber, getFirmInvoicePrefix } from '../src/utils/invoiceNumbering.ts';
+
+it('correctly parses sequence numbers from various formats', () => {
+  assert.strictEqual(parseInvoiceSequenceNumber('JE/26-27/005'), 5);
+  assert.strictEqual(parseInvoiceSequenceNumber('INV-2026-042'), 42);
+  assert.strictEqual(parseInvoiceSequenceNumber('AST/100'), 100);
+});
+
+it('increments sequentially from last saved history record', () => {
+  const firm = { name: 'Jagga Enterprises & Co.', address: '', mobile: '', gstin: '', email: '', tagline: '', logo: '', pan: '' };
+  const history = [
+    { id: '1', invNo: 'JE/26-27/001' },
+    { id: '2', invNo: 'JE/26-27/002' },
+    { id: '3', invNo: 'JE/26-27/003' },
+  ];
+  const next = generateNextInvoiceNumber(firm, history);
+  assert.strictEqual(next.endsWith('/004'), true);
+});
+
+it('prevents duplicates even when entries have gaps or custom formatting', () => {
+  const firm = { name: 'Dexon Solar Tech', invoicePrefix: 'DST', address: '', mobile: '', gstin: '', email: '', tagline: '', logo: '', pan: '' };
+  const history = [
+    { id: '1', invNo: 'DST/26-27/001' },
+    { id: '2', invNo: 'DST/26-27/010' },
+  ];
+  const next = generateNextInvoiceNumber(firm, history);
+  assert.strictEqual(next.endsWith('/011'), true);
+});
+
+// -------------------------------------------------------------
 // Results Summary
 // -------------------------------------------------------------
 console.log('\n=============================================');

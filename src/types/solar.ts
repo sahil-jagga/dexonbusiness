@@ -37,6 +37,8 @@ export interface FirmInfo {
   logo: string;
   pan: string;
   signature?: string; // Digital signature image data URL
+  invoicePrefix?: string; // Custom invoice prefix (e.g. "JE", "INV", "AST")
+  invoiceStartingNumber?: number; // Starting counter number (e.g. 1, 101)
 }
 
 export interface InvoiceHistoryRecord {
