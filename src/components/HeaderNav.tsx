@@ -134,17 +134,9 @@ export const HeaderNav: React.FC<HeaderNavProps> = ({
     } catch {}
   }, []);
 
-  // Secret 5-click trigger on Sun Logo
+  // Logo click is regular interaction (no secret admin backdoor on clicks)
   const handleLogoClick = () => {
-    const next = logoClicks + 1;
-    if (next >= 5) {
-      setLogoClicks(0);
-      setIsOwnerUnlocked(true);
-      onOpenAdmin();
-    } else {
-      setLogoClicks(next);
-      setTimeout(() => setLogoClicks(0), 3000);
-    }
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   // Force update helper (Purges Service Worker and stale browser caches)
@@ -183,13 +175,16 @@ export const HeaderNav: React.FC<HeaderNavProps> = ({
 
   // Secret URL Route Detection (e.g. #/dexonjitender, #/owner, #/xyz, or ?admin=dexonjitender)
   React.useEffect(() => {
+    let isHandling = false;
+
     const checkSecretRoute = () => {
+      if (isHandling) return;
       const hash = (window.location.hash || '').toLowerCase();
       const path = (window.location.pathname || '').toLowerCase();
       const search = (window.location.search || '').toLowerCase();
       const customSlug = (localStorage.getItem('nb_admin_secret_slug') || 'dexonjitender').toLowerCase();
 
-      if (
+      const isSecret =
         hash.includes('owner') ||
         hash.includes('dexonjitender') ||
         hash.includes('xyz') ||
@@ -200,10 +195,21 @@ export const HeaderNav: React.FC<HeaderNavProps> = ({
         path.includes(`/${customSlug}`) ||
         search.includes('admin=dexonjitender') ||
         search.includes('admin=owner') ||
-        search.includes(`admin=${customSlug}`)
-      ) {
+        search.includes(`admin=${customSlug}`);
+
+      if (isSecret) {
+        isHandling = true;
         setIsOwnerUnlocked(true);
+        // Clean URL so the page is clean and modal can be closed without getting trapped
+        try {
+          if (window.location.hash || window.location.search) {
+            window.history.replaceState(null, '', window.location.pathname);
+          }
+        } catch {}
         onOpenAdmin();
+        setTimeout(() => {
+          isHandling = false;
+        }, 500);
       }
     };
 
@@ -236,20 +242,20 @@ export const HeaderNav: React.FC<HeaderNavProps> = ({
             </span>
           </button>
 
-          {/* Logo & Software Name (Secret 5-click unlocks Owner Admin Portal) */}
+          {/* Logo & Software Name */}
           <div
             onClick={handleLogoClick}
             className="flex items-center gap-2 cursor-pointer select-none group"
-            title="NexBill Software"
+            title="Dexon Business Suite"
           >
             <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-tr from-amber-500 to-amber-300 text-slate-950 shadow-md shadow-amber-500/20 shrink-0 group-hover:scale-105 transition">
               <Sun className="h-5 w-5 animate-spin-slow" />
             </div>
             <div>
               <div className="flex items-center gap-1.5">
-                <span className="font-black text-white text-sm tracking-tight">NexBill</span>
+                <span className="font-black text-white text-sm tracking-tight">Dexon</span>
                 <span className="rounded bg-amber-500/20 px-1.5 py-0.2 text-[9px] font-black text-amber-400 border border-amber-500/30">
-                  PRO SaaS
+                  PRO
                 </span>
               </div>
               <div className="text-[10px] text-slate-400 flex items-center gap-1.5">

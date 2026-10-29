@@ -11,21 +11,28 @@ export const PWAInstallButton: React.FC<{ compact?: boolean }> = ({ compact = fa
     return (
       <span
         className="hidden md:inline-flex items-center gap-1 rounded-md border border-emerald-500/30 bg-emerald-950/30 px-2 py-1 text-[10px] font-bold text-emerald-400"
-        title="Nexbill is installed and running as a standalone app"
+        title="Dexon is installed and running as a standalone app"
       >
         <CheckCircle2 className="h-3 w-3" />
-        <span>Installed</span>
+        <span>Dexon Installed</span>
       </span>
     );
   }
 
   const handleInstallClick = async () => {
+    // 1-Click Direct Install: If browser prompt is available, launch native OS install dialog directly!
     if (isInstallable) {
-      const outcome = await install();
-      if (!outcome) {
+      try {
+        const outcome = await install();
+        // If user accepted, browser handles the installation automatically
+        if (outcome) {
+          return;
+        }
+      } catch {
         setShowGuideModal(true);
       }
     } else {
+      // If prompt not available yet (or already installed in Chrome browser profile)
       setShowGuideModal(true);
     }
   };
@@ -37,7 +44,7 @@ export const PWAInstallButton: React.FC<{ compact?: boolean }> = ({ compact = fa
         className={`flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-cyan-500 via-blue-600 to-indigo-600 font-extrabold text-white shadow-md shadow-cyan-500/25 hover:brightness-110 active:scale-95 transition ${
           compact ? 'px-2 py-1 text-[11px]' : 'px-3 py-1.5 text-xs'
         }`}
-        title="Install Nexbill directly on your phone or computer as a standalone desktop/mobile app (Works 100% offline)"
+        title="Install Dexon directly on your phone or computer as a standalone desktop/mobile app (1-Click Instant Install, Works 100% Offline)"
       >
         <Smartphone className="h-3.5 w-3.5 shrink-0 text-cyan-200" />
         <span>Install App</span>
@@ -55,7 +62,7 @@ export const PWAInstallButton: React.FC<{ compact?: boolean }> = ({ compact = fa
                 </div>
                 <div>
                   <h3 className="text-sm font-black text-white flex items-center gap-1.5">
-                    Install NexBill App
+                    Install Dexon App
                     <span className="rounded-full bg-cyan-500/20 px-2 py-0.2 text-[9px] font-bold text-cyan-300 border border-cyan-500/30">
                       PWA Offline Ready
                     </span>
@@ -140,7 +147,7 @@ export const PWAInstallButton: React.FC<{ compact?: boolean }> = ({ compact = fa
                       </div>
                       <div className="flex items-start gap-2">
                         <span className="flex h-4 w-4 items-center justify-center rounded-full bg-blue-500 text-[10px] font-black text-slate-950 shrink-0">2</span>
-                        <span>Ya Chrome Menu (3 dots) ➔ <b>Cast, save and share</b> ➔ <b>"Install Nexbill"</b> karein.</span>
+                        <span>Ya Chrome Menu (3 dots) ➔ <b>Cast, save and share</b> ➔ <b>"Install Dexon"</b> karein.</span>
                       </div>
                     </div>
                   </div>

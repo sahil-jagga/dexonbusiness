@@ -1,25 +1,25 @@
 import { StockItem, FirmInfo, BankInfo, TermsInfo, CustomerInfo, InvoiceHistoryRecord, InvoiceItem, BookEntry } from '../types/solar';
 
 export const DEFAULT_STOCKS: StockItem[] = [
-  { name: 'Solar PV Module DCR (ALMM Bifacial 550Wp)', hsn: '85414300', gst: 5, defaultBuy: 11000 },
-  { name: 'Solar PV Module Non-DCR (Mono PERC)', hsn: '85414300', gst: 5, defaultBuy: 8500 },
-  { name: 'Solar Grid-Tied Inverter 3kW (Polycab / Deye)', hsn: '85044090', gst: 5, defaultBuy: 24000 },
-  { name: 'Solar Grid-Tied Inverter 5kW (Polycab / Growatt)', hsn: '85044090', gst: 5, defaultBuy: 33000 },
-  { name: 'Solar Grid-Tied Inverter 10kW 3-Phase (Polycab / Sungrow)', hsn: '85044090', gst: 5, defaultBuy: 52000 },
-  { name: 'MMS GI C-Channel Structure (HDG 80 Micron)', hsn: '73089030', gst: 18, defaultBuy: 12000 },
-  { name: 'C-Channel 4" & 3" HDG (GI)', hsn: '73063090', gst: 18, defaultBuy: 4500 },
-  { name: 'Base Plate & Hardware Kit 150x150x6 MM', hsn: '73061011', gst: 18, defaultBuy: 2200 },
-  { name: 'DC Solar Cable 4 sq.mm Copper (Red & Black)', hsn: '85446020', gst: 18, defaultBuy: 3500 },
-  { name: 'AC Armoured Multistrand Cable 4 Core Copper', hsn: '85446020', gst: 18, defaultBuy: 3200 },
-  { name: 'ACDB Distribution Box with SPD (IP65)', hsn: '85371000', gst: 18, defaultBuy: 2800 },
-  { name: 'DCDB Distribution Box with SPD (IP65)', hsn: '85371000', gst: 18, defaultBuy: 2600 },
-  { name: 'Net Meter Box 1-Phase / 3-Phase Discom Standard', hsn: '85371000', gst: 18, defaultBuy: 1800 },
-  { name: 'Lightning Arrester (Copper Bonded with Spike)', hsn: '85354010', gst: 18, defaultBuy: 1600 },
-  { name: 'Earthing Electrode 2.25 Mtr (Pure Copper Coated)', hsn: '83111000', gst: 18, defaultBuy: 3200 },
-  { name: 'Backfill Chemical Compound Bag 25 KG', hsn: '73089090', gst: 18, defaultBuy: 1100 },
-  { name: 'Heavy Duty PVC Conduit Pipe & Accessories', hsn: '392690', gst: 18, defaultBuy: 1500 },
-  { name: 'Complete Installation, Testing & Commissioning Charges', hsn: '9954', gst: 18, defaultBuy: 8000 },
-  { name: 'Net Metering Discom Documentation & Liasioning Service', hsn: '9983', gst: 18, defaultBuy: 3000 },
+  { name: 'Solar PV Module DCR (ALMM Bifacial 550Wp)', hsn: '85414300', gst: 5, defaultBuy: 11000, quantity: 24, minStock: 10, unit: 'NOS' },
+  { name: 'Solar PV Module Non-DCR (Mono PERC)', hsn: '85414300', gst: 5, defaultBuy: 8500, quantity: 4, minStock: 8, unit: 'NOS' }, // Low Stock!
+  { name: 'Solar Grid-Tied Inverter 3kW (Polycab / Deye)', hsn: '85044090', gst: 5, defaultBuy: 24000, quantity: 1, minStock: 3, unit: 'Set' }, // Low Stock!
+  { name: 'Solar Grid-Tied Inverter 5kW (Polycab / Growatt)', hsn: '85044090', gst: 5, defaultBuy: 33000, quantity: 4, minStock: 2, unit: 'Set' },
+  { name: 'Solar Grid-Tied Inverter 10kW 3-Phase (Polycab / Sungrow)', hsn: '85044090', gst: 5, defaultBuy: 52000, quantity: 0, minStock: 2, unit: 'Set' }, // Out of Stock!
+  { name: 'MMS GI C-Channel Structure (HDG 80 Micron)', hsn: '73089030', gst: 18, defaultBuy: 12000, quantity: 12, minStock: 5, unit: 'Set' },
+  { name: 'C-Channel 4" & 3" HDG (GI)', hsn: '73063090', gst: 18, defaultBuy: 4500, quantity: 25, minStock: 10, unit: 'Pcs.' },
+  { name: 'Base Plate & Hardware Kit 150x150x6 MM', hsn: '73061011', gst: 18, defaultBuy: 2200, quantity: 15, minStock: 6, unit: 'Set' },
+  { name: 'DC Solar Cable 4 sq.mm Copper (Red & Black)', hsn: '85446020', gst: 18, defaultBuy: 3500, quantity: 300, minStock: 100, unit: 'Mtr.' },
+  { name: 'AC Armoured Multistrand Cable 4 Core Copper', hsn: '85446020', gst: 18, defaultBuy: 3200, quantity: 150, minStock: 50, unit: 'Mtr.' },
+  { name: 'ACDB Distribution Box with SPD (IP65)', hsn: '85371000', gst: 18, defaultBuy: 2800, quantity: 2, minStock: 4, unit: 'Set' }, // Low Stock!
+  { name: 'DCDB Distribution Box with SPD (IP65)', hsn: '85371000', gst: 18, defaultBuy: 2600, quantity: 6, minStock: 4, unit: 'Set' },
+  { name: 'Net Meter Box 1-Phase / 3-Phase Discom Standard', hsn: '85371000', gst: 18, defaultBuy: 1800, quantity: 8, minStock: 3, unit: 'Set' },
+  { name: 'Lightning Arrester (Copper Bonded with Spike)', hsn: '85354010', gst: 18, defaultBuy: 1600, quantity: 5, minStock: 2, unit: 'Set' },
+  { name: 'Earthing Electrode 2.25 Mtr (Pure Copper Coated)', hsn: '83111000', gst: 18, defaultBuy: 3200, quantity: 1, minStock: 4, unit: 'Set' }, // Low Stock!
+  { name: 'Backfill Chemical Compound Bag 25 KG', hsn: '73089090', gst: 18, defaultBuy: 1100, quantity: 14, minStock: 5, unit: 'Bag' },
+  { name: 'Heavy Duty PVC Conduit Pipe & Accessories', hsn: '392690', gst: 18, defaultBuy: 1500, quantity: 40, minStock: 15, unit: 'Pcs.' },
+  { name: 'Complete Installation, Testing & Commissioning Charges', hsn: '9954', gst: 18, defaultBuy: 8000, quantity: 999, minStock: 0, unit: 'Job' },
+  { name: 'Net Metering Discom Documentation & Liasioning Service', hsn: '9983', gst: 18, defaultBuy: 3000, quantity: 999, minStock: 0, unit: 'Job' },
 ];
 
 export const EMPTY_FIRM: FirmInfo = {

@@ -29,6 +29,7 @@ interface SidebarCalculatorProps {
   onTargetPriceChange: (val: number) => void;
   stockLibrary: StockItem[];
   onAddStockItem: (item: StockItem) => void;
+  onUpdateStockItem?: (item: StockItem) => void;
   onDeleteStockItem: (name: string) => void;
   currency: string;
   country?: CountryCode;
@@ -46,6 +47,7 @@ export const SidebarCalculator: React.FC<SidebarCalculatorProps> = ({
   onTargetPriceChange,
   stockLibrary,
   onAddStockItem,
+  onUpdateStockItem,
   onDeleteStockItem,
   currency,
   country = 'IN',
@@ -60,6 +62,15 @@ export const SidebarCalculator: React.FC<SidebarCalculatorProps> = ({
   const [newStockHsn, setNewStockHsn] = useState('');
   const [newStockGst, setNewStockGst] = useState<number>(countryCfg.defaultTaxRate);
   const [newStockBuy, setNewStockBuy] = useState<number>(1000);
+  const [newStockQty, setNewStockQty] = useState<number>(10);
+  const [newStockMin, setNewStockMin] = useState<number>(5);
+  const [newStockUnit, setNewStockUnit] = useState<string>('NOS');
+
+  // Low stock filters & quick editing state
+  const [stockFilter, setStockFilter] = useState<'all' | 'low'>('all');
+  const [editingItemName, setEditingItemName] = useState<string | null>(null);
+  const [editQty, setEditQty] = useState<number>(0);
+  const [editMin, setEditMin] = useState<number>(5);
 
   // Dynamic Solar Load state (kW)
   const [selectedKw, setSelectedKw] = useState<number>(3);
@@ -132,6 +143,33 @@ export const SidebarCalculator: React.FC<SidebarCalculatorProps> = ({
     onItemsChange(generated.items);
   };
 
+  // Low Stock Helpers & Thresholds
+  const getThreshold = (stk: StockItem) => (typeof stk.minStock === 'number' ? stk.minStock : 5);
+  const getQty = (stk: StockItem) => (typeof stk.quantity === 'number' ? stk.quantity : 0);
+  const isLowStock = (stk: StockItem) => getQty(stk) <= getThreshold(stk);
+  const isOutOfStock = (stk: StockItem) => getQty(stk) <= 0;
+  const lowStockCount = stockLibrary.filter(isLowStock).length;
+
+  const handleUpdateStockQty = (stk: StockItem, delta: number) => {
+    if (!onUpdateStockItem) return;
+    const current = getQty(stk);
+    const updatedQty = Math.max(0, current + delta);
+    onUpdateStockItem({
+      ...stk,
+      quantity: updatedQty,
+    });
+  };
+
+  const handleSaveThresholdEdit = (stk: StockItem) => {
+    if (!onUpdateStockItem) return;
+    onUpdateStockItem({
+      ...stk,
+      quantity: Math.max(0, editQty),
+      minStock: Math.max(0, editMin),
+    });
+    setEditingItemName(null);
+  };
+
   const handleAddNewStock = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newStockName.trim()) return;
@@ -140,17 +178,25 @@ export const SidebarCalculator: React.FC<SidebarCalculatorProps> = ({
       hsn: newStockHsn.trim() || '85414300',
       gst: Number(newStockGst) || 18,
       defaultBuy: Number(newStockBuy) || 0,
+      quantity: Number(newStockQty) >= 0 ? Number(newStockQty) : 10,
+      minStock: Number(newStockMin) >= 0 ? Number(newStockMin) : 5,
+      unit: newStockUnit.trim() || 'NOS',
     });
     setNewStockName('');
     setNewStockHsn('');
+    setNewStockQty(10);
+    setNewStockMin(5);
   };
 
-  // Filtered stocks based on search query
-  const filteredStocks = stockLibrary.filter(
-    (s) =>
+  // Filtered stocks based on search query and low stock filter
+  const filteredStocks = stockLibrary.filter((s) => {
+    const matchesSearch =
       s.name.toLowerCase().includes(catalogSearch.toLowerCase()) ||
-      s.hsn.includes(catalogSearch)
-  );
+      s.hsn.includes(catalogSearch);
+    if (!matchesSearch) return false;
+    if (stockFilter === 'low') return isLowStock(s);
+    return true;
+  });
 
   return (
     <>
@@ -405,6 +451,29 @@ export const SidebarCalculator: React.FC<SidebarCalculatorProps> = ({
             </button>
           </div>
 
+          {/* Low Stock Alert Notification Banner */}
+          {lowStockCount > 0 && (
+            <div className="mb-2.5 flex items-center justify-between rounded-xl border border-rose-500/60 bg-gradient-to-r from-rose-950/60 to-slate-900 px-3 py-2 text-xs shadow-md">
+              <div className="flex items-center gap-2">
+                <span className="flex h-2.5 w-2.5 rounded-full bg-rose-500 animate-ping" />
+                <span className="font-extrabold text-rose-300 text-[11px]">
+                  ⚠️ Low Stock Alert: <b className="text-white">{lowStockCount}</b> {lowStockCount === 1 ? 'item needs' : 'items need'} reorder!
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setStockFilter(stockFilter === 'low' ? 'all' : 'low')}
+                className={`rounded px-2 py-0.5 text-[10px] font-black transition ${
+                  stockFilter === 'low'
+                    ? 'bg-rose-600 text-white shadow-sm'
+                    : 'bg-rose-950/80 text-rose-200 border border-rose-500/40 hover:bg-rose-800 hover:text-white'
+                }`}
+              >
+                {stockFilter === 'low' ? 'Show All' : 'Filter Low Stock'}
+              </button>
+            </div>
+          )}
+
           {/* Search box inside catalog */}
           <div className="relative mb-2">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-500" />
@@ -418,75 +487,211 @@ export const SidebarCalculator: React.FC<SidebarCalculatorProps> = ({
           </div>
 
           {/* Stock List Scrollable with comfortable height */}
-          <div className="flex-1 overflow-y-auto space-y-1.5 rounded-xl border border-slate-800 bg-slate-950/80 p-2 max-h-[360px]">
+          <div className="flex-1 overflow-y-auto space-y-2 rounded-xl border border-slate-800 bg-slate-950/80 p-2 max-h-[380px]">
             {filteredStocks.length === 0 ? (
               <div className="py-6 text-center text-xs text-slate-500">
-                Koi item match nahi hua "{catalogSearch}"
+                {stockFilter === 'low'
+                  ? 'Sabhi items me stock safe hai (koi low stock nahi hai)!'
+                  : `Koi item match nahi hua "${catalogSearch}"`}
               </div>
             ) : (
-              filteredStocks.map((stk) => (
-                <div
-                  key={stk.name}
-                  className="group flex items-start justify-between rounded-lg border border-slate-800 bg-slate-900/80 p-2 text-xs hover:border-amber-500/50 hover:bg-slate-900 transition"
-                >
-                  <div className="flex-1 overflow-hidden pr-2">
-                    <div className="font-semibold text-slate-100 text-[11px] leading-snug">
-                      {stk.name}
-                    </div>
-                    <div className="text-[10px] text-slate-400 mt-0.5 flex items-center gap-2">
-                      <span>{countryCfg.itemCodeLabel}: <b>{stk.hsn}</b></span>
-                      <span>•</span>
-                      <span>{countryCfg.taxName}: <b className={stk.gst === 5 ? 'text-emerald-400' : 'text-orange-400'}>{stk.gst}%</b></span>
-                      {stk.defaultBuy ? (
-                        <>
-                          <span>•</span>
-                          <span className="text-slate-400">Buy: {currency}{stk.defaultBuy}</span>
-                        </>
-                      ) : null}
-                    </div>
-                  </div>
+              filteredStocks.map((stk) => {
+                const low = isLowStock(stk);
+                const out = isOutOfStock(stk);
+                const qty = getQty(stk);
+                const threshold = getThreshold(stk);
+                const unit = stk.unit || 'NOS';
 
-                  <div className="flex items-center gap-1 shrink-0 pt-0.5">
-                    <button
-                      onClick={() => {
-                        const newItem: InvoiceItem = {
-                          id: Date.now(),
-                          name: stk.name,
-                          hsn: stk.hsn,
-                          gst: stk.gst,
-                          qty: 1,
-                          unit: stk.name.includes('Cable') || stk.name.includes('Pipe') || stk.name.includes('Wire')
-                            ? 'Mtr.'
-                            : stk.name.includes('Service') || stk.name.includes('Charges') || stk.name.includes('Fee')
-                            ? 'Job'
-                            : 'NOS',
-                          buyRate: stk.defaultBuy || 1000,
-                          rate: Math.round((stk.defaultBuy || 1000) * 1.3),
-                          serialNumbers: '',
-                        };
-                        onItemsChange([...items, newItem]);
-                      }}
-                      className="rounded bg-amber-500/20 px-2.5 py-1 text-[10px] font-extrabold text-amber-300 hover:bg-amber-500 hover:text-slate-950 transition"
-                      title="Add to Current Invoice"
-                    >
-                      + Add
-                    </button>
-                    <button
-                      onClick={() => onDeleteStockItem(stk.name)}
-                      className="opacity-0 group-hover:opacity-100 p-1 text-slate-500 hover:text-rose-400 transition"
-                      title="Delete from Catalog"
-                    >
-                      <Trash2 className="h-3 w-3" />
-                    </button>
+                return (
+                  <div
+                    key={stk.name}
+                    className={`group flex flex-col rounded-lg border p-2 text-xs transition ${
+                      low
+                        ? 'border-rose-500/80 bg-rose-950/30 shadow-sm shadow-rose-950/50'
+                        : 'border-slate-800 bg-slate-900/80 hover:border-amber-500/50 hover:bg-slate-900'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1 overflow-hidden pr-2">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="font-semibold text-slate-100 text-[11px] leading-snug">
+                            {stk.name}
+                          </span>
+                          {out ? (
+                            <span className="inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[9px] font-black bg-rose-600 text-white animate-pulse">
+                              <AlertTriangle className="h-2.5 w-2.5" /> Out of Stock (0 {unit})
+                            </span>
+                          ) : low ? (
+                            <span className="inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[9px] font-black bg-rose-500/20 text-rose-300 border border-rose-500/50">
+                              <AlertTriangle className="h-2.5 w-2.5 text-rose-400" /> Low Stock ({qty} left)
+                            </span>
+                          ) : null}
+                        </div>
+
+                        <div className="text-[10px] text-slate-400 mt-1 flex flex-wrap items-center gap-2">
+                          <span>{countryCfg.itemCodeLabel}: <b>{stk.hsn}</b></span>
+                          <span>•</span>
+                          <span>{countryCfg.taxName}: <b className={stk.gst === 5 ? 'text-emerald-400' : 'text-orange-400'}>{stk.gst}%</b></span>
+                          {stk.defaultBuy ? (
+                            <>
+                              <span>•</span>
+                              <span className="text-slate-400">Buy: {currency}{stk.defaultBuy}</span>
+                            </>
+                          ) : null}
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-1 shrink-0 pt-0.5">
+                        <button
+                          onClick={() => {
+                            const newItem: InvoiceItem = {
+                              id: Date.now(),
+                              name: stk.name,
+                              hsn: stk.hsn,
+                              gst: stk.gst,
+                              qty: 1,
+                              unit: unit || (stk.name.includes('Cable') || stk.name.includes('Pipe') || stk.name.includes('Wire')
+                                ? 'Mtr.'
+                                : stk.name.includes('Service') || stk.name.includes('Charges') || stk.name.includes('Fee')
+                                ? 'Job'
+                                : 'NOS'),
+                              buyRate: stk.defaultBuy || 1000,
+                              rate: Math.round((stk.defaultBuy || 1000) * 1.3),
+                              serialNumbers: '',
+                            };
+                            onItemsChange([...items, newItem]);
+                          }}
+                          className="rounded bg-amber-500/20 px-2.5 py-1 text-[10px] font-extrabold text-amber-300 hover:bg-amber-500 hover:text-slate-950 transition"
+                          title="Add to Current Invoice"
+                        >
+                          + Add
+                        </button>
+                        <button
+                          onClick={() => onDeleteStockItem(stk.name)}
+                          className="opacity-0 group-hover:opacity-100 p-1 text-slate-500 hover:text-rose-400 transition"
+                          title="Delete from Catalog"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Stock Level & Threshold Indicator Bar */}
+                    <div className="mt-2 pt-1.5 border-t border-slate-800/80 flex items-center justify-between text-[10px]">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="text-slate-400">In Stock:</span>
+                        <span className={`font-bold font-mono px-1.5 py-0.5 rounded text-[10px] ${
+                          low ? 'bg-rose-500/30 text-rose-200 border border-rose-500/40' : 'bg-slate-800 text-emerald-400'
+                        }`}>
+                          {qty} {unit}
+                        </span>
+                        <span className="text-slate-400 text-[9.5px]">
+                          (Alert &lt;= <b>{threshold}</b>)
+                        </span>
+                        {low && (
+                          <span className="text-rose-400 font-extrabold text-[9.5px] tracking-tight">
+                            ⚡ Reorder Required!
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Quick stock +/- and threshold config */}
+                      {onUpdateStockItem && (
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => handleUpdateStockQty(stk, -1)}
+                            className="h-5 w-5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 font-black flex items-center justify-center text-xs"
+                            title="Quick Reduce Stock (-1)"
+                          >
+                            -
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleUpdateStockQty(stk, +1)}
+                            className="h-5 w-5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 font-black flex items-center justify-center text-xs"
+                            title="Quick Increase Stock (+1)"
+                          >
+                            +
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (editingItemName === stk.name) {
+                                setEditingItemName(null);
+                              } else {
+                                setEditingItemName(stk.name);
+                                setEditQty(qty);
+                                setEditMin(threshold);
+                              }
+                            }}
+                            className="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-amber-500/20 text-amber-300 text-[9.5px] font-bold border border-slate-700"
+                            title="Edit Stock Count and Threshold"
+                          >
+                            {editingItemName === stk.name ? 'Close' : 'Set Threshold'}
+                          </button>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Inline Threshold and Quantity Update Popover */}
+                    {editingItemName === stk.name && onUpdateStockItem && (
+                      <div className="mt-2 rounded-lg border border-amber-500/50 bg-slate-950 p-2 text-xs">
+                        <div className="text-[10px] font-extrabold text-amber-400 mb-1.5 flex items-center justify-between">
+                          <span>Set Inventory & Reorder Limit for "{stk.name}"</span>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2 mb-2">
+                          <div>
+                            <label className="text-[9.5px] text-slate-400 block mb-0.5">Current Stock Qty</label>
+                            <input
+                              type="number"
+                              min="0"
+                              value={editQty}
+                              onChange={(e) => setEditQty(Number(e.target.value))}
+                              className="w-full rounded border border-slate-700 bg-slate-900 px-2 py-1 text-xs text-white focus:border-amber-400 focus:outline-none"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-[9.5px] text-slate-400 block mb-0.5">Low Alert Threshold (Min)</label>
+                            <input
+                              type="number"
+                              min="0"
+                              value={editMin}
+                              onChange={(e) => setEditMin(Number(e.target.value))}
+                              className="w-full rounded border border-slate-700 bg-slate-900 px-2 py-1 text-xs text-white focus:border-amber-400 focus:outline-none"
+                            />
+                          </div>
+                        </div>
+                        <div className="flex justify-end gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => setEditingItemName(null)}
+                            className="px-2 py-1 rounded text-[10px] text-slate-400 hover:text-white"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleSaveThresholdEdit(stk)}
+                            className="px-3 py-1 rounded bg-amber-500 text-slate-950 font-black text-[10px] hover:bg-amber-400"
+                          >
+                            Save Threshold
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
 
-          {/* Add Custom Stock Item Form */}
+          {/* Add Custom Stock Item Form with user-defined threshold */}
           <form onSubmit={handleAddNewStock} className="mt-2.5 rounded-xl border border-slate-800 bg-slate-950 p-2.5">
-            <div className="text-[11px] font-bold text-slate-300 mb-1.5">+ Create Custom Item in Catalog</div>
+            <div className="text-[11px] font-bold text-slate-300 mb-1.5 flex items-center justify-between">
+              <span>+ Create Custom Item in Catalog</span>
+              <span className="text-[9.5px] text-amber-400">With Low Stock Alert</span>
+            </div>
             <div className="space-y-1.5">
               <input
                 type="text"
@@ -522,10 +727,46 @@ export const SidebarCalculator: React.FC<SidebarCalculatorProps> = ({
                   className="rounded border border-slate-700 bg-slate-900 px-2 py-1 text-xs text-white focus:border-amber-400 focus:outline-none"
                 />
               </div>
+
+              {/* User-defined Stock Quantity & Alert Threshold */}
+              <div className="grid grid-cols-3 gap-1.5 pt-1">
+                <div>
+                  <label className="text-[9px] text-slate-400 block">Initial Qty</label>
+                  <input
+                    type="number"
+                    min="0"
+                    placeholder="Qty"
+                    value={newStockQty}
+                    onChange={(e) => setNewStockQty(Number(e.target.value))}
+                    className="w-full rounded border border-slate-700 bg-slate-900 px-2 py-1 text-xs text-white focus:border-amber-400 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="text-[9px] text-slate-400 block">Alert Threshold</label>
+                  <input
+                    type="number"
+                    min="0"
+                    placeholder="Min Alert"
+                    value={newStockMin}
+                    onChange={(e) => setNewStockMin(Number(e.target.value))}
+                    className="w-full rounded border border-slate-700 bg-slate-900 px-2 py-1 text-xs text-white focus:border-amber-400 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="text-[9px] text-slate-400 block">Unit</label>
+                  <input
+                    type="text"
+                    placeholder="NOS / Mtr"
+                    value={newStockUnit}
+                    onChange={(e) => setNewStockUnit(e.target.value)}
+                    className="w-full rounded border border-slate-700 bg-slate-900 px-2 py-1 text-xs text-white focus:border-amber-400 focus:outline-none"
+                  />
+                </div>
+              </div>
             </div>
             <button
               type="submit"
-              className="mt-2 w-full rounded bg-slate-800 py-1 text-xs font-semibold text-amber-400 hover:bg-slate-700"
+              className="mt-2 w-full rounded bg-slate-800 py-1.5 text-xs font-bold text-amber-400 hover:bg-slate-700 transition"
             >
               Save to Catalog
             </button>
@@ -536,14 +777,20 @@ export const SidebarCalculator: React.FC<SidebarCalculatorProps> = ({
       {/* FULLSCREEN / EXPANDED CATALOG MODAL */}
       {isCatalogModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-          <div className="flex h-[85vh] w-full max-w-4xl flex-col rounded-2xl border border-slate-700 bg-slate-950 shadow-2xl">
+          <div className="flex h-[85vh] w-full max-w-5xl flex-col rounded-2xl border border-slate-700 bg-slate-950 shadow-2xl">
             {/* Modal Header */}
             <div className="flex items-center justify-between border-b border-slate-800 px-6 py-4">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-3">
                 <Layers className="h-5 w-5 text-amber-400" />
                 <h3 className="text-base font-black text-white">
                   Full Equipment & Stock Catalog ({stockLibrary.length} Items)
                 </h3>
+                {lowStockCount > 0 && (
+                  <span className="flex items-center gap-1 rounded-full bg-rose-500/20 border border-rose-500/50 px-2.5 py-0.5 text-xs font-extrabold text-rose-300">
+                    <AlertTriangle className="h-3 w-3 text-rose-400" />
+                    {lowStockCount} Low Stock
+                  </span>
+                )}
               </div>
               <button
                 onClick={() => setIsCatalogModalOpen(false)}
@@ -553,77 +800,183 @@ export const SidebarCalculator: React.FC<SidebarCalculatorProps> = ({
               </button>
             </div>
 
-            {/* Search Bar inside Modal */}
-            <div className="border-b border-slate-800 bg-slate-900/60 px-6 py-3">
-              <div className="relative">
+            {/* Search Bar & Filter Tabs inside Modal */}
+            <div className="border-b border-slate-800 bg-slate-900/60 px-6 py-3 flex flex-col sm:flex-row items-center gap-3">
+              <div className="relative flex-1 w-full">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                 <input
                   type="text"
                   value={catalogSearch}
                   onChange={(e) => setCatalogSearch(e.target.value)}
                   placeholder="Search by equipment name, brand, or HSN code..."
-                  className="w-full rounded-xl border border-slate-700 bg-slate-900 py-2.5 pl-10 pr-4 text-sm text-white placeholder-slate-400 focus:border-amber-400 focus:outline-none"
+                  className="w-full rounded-xl border border-slate-700 bg-slate-900 py-2 pl-10 pr-4 text-sm text-white placeholder-slate-400 focus:border-amber-400 focus:outline-none"
                   autoFocus
                 />
+              </div>
+
+              {/* Low Stock Quick Filter Buttons */}
+              <div className="flex items-center gap-1.5 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setStockFilter('all')}
+                  className={`rounded-lg px-3 py-1.5 text-xs font-bold transition ${
+                    stockFilter === 'all'
+                      ? 'bg-amber-500 text-slate-950'
+                      : 'bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white'
+                  }`}
+                >
+                  All ({stockLibrary.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setStockFilter('low')}
+                  className={`rounded-lg px-3 py-1.5 text-xs font-bold transition flex items-center gap-1 ${
+                    stockFilter === 'low'
+                      ? 'bg-rose-600 text-white shadow-sm'
+                      : 'bg-rose-950/60 text-rose-300 border border-rose-500/40 hover:bg-rose-900'
+                  }`}
+                >
+                  <AlertTriangle className="h-3 w-3" />
+                  Low Stock Only ({lowStockCount})
+                </button>
               </div>
             </div>
 
             {/* Cards Grid */}
             <div className="flex-1 overflow-y-auto p-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                {filteredStocks.map((stk) => (
-                  <div
-                    key={stk.name}
-                    className="flex flex-col justify-between rounded-xl border border-slate-800 bg-slate-900/70 p-3.5 hover:border-amber-500/50 hover:bg-slate-900 transition"
-                  >
-                    <div>
-                      <div className="font-bold text-white text-xs leading-snug">
-                        {stk.name}
-                      </div>
-                      <div className="mt-2 flex items-center justify-between text-[11px] text-slate-400">
-                        <span>{countryCfg.itemCodeLabel}: <b className="font-mono text-slate-200">{stk.hsn}</b></span>
-                        <span className={`font-bold px-1.5 py-0.5 rounded text-[10px] ${
-                          stk.gst === 5 ? 'bg-emerald-500/20 text-emerald-300' : 'bg-orange-500/20 text-orange-300'
-                        }`}>
-                          {stk.gst}% {countryCfg.taxName}
-                        </span>
-                      </div>
-                      {stk.defaultBuy ? (
-                        <div className="mt-1 text-[11px] text-slate-400">
-                          Cost: <b className="text-slate-200">{currency}{formatIntegerINR(stk.defaultBuy)}</b>
-                        </div>
-                      ) : null}
-                    </div>
+              {filteredStocks.length === 0 ? (
+                <div className="py-12 text-center text-sm text-slate-400">
+                  {stockFilter === 'low'
+                    ? 'All stock levels are above threshold! No low stock warnings.'
+                    : `No items found matching "${catalogSearch}"`}
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {filteredStocks.map((stk) => {
+                    const low = isLowStock(stk);
+                    const out = isOutOfStock(stk);
+                    const qty = getQty(stk);
+                    const threshold = getThreshold(stk);
+                    const unit = stk.unit || 'NOS';
 
-                    <div className="mt-3 pt-2.5 border-t border-slate-800/80 flex items-center justify-between">
-                      <button
-                        onClick={() => {
-                          const newItem: InvoiceItem = {
-                            id: Date.now(),
-                            name: stk.name,
-                            hsn: stk.hsn,
-                            gst: stk.gst,
-                            qty: 1,
-                            unit: stk.name.includes('Cable') || stk.name.includes('Pipe') || stk.name.includes('Wire')
-                              ? 'Mtr.'
-                              : stk.name.includes('Service') || stk.name.includes('Charges')
-                              ? 'Job'
-                              : 'NOS',
-                            buyRate: stk.defaultBuy || 1000,
-                            rate: Math.round((stk.defaultBuy || 1000) * 1.3),
-                            serialNumbers: '',
-                          };
-                          onItemsChange([...items, newItem]);
-                          setIsCatalogModalOpen(false);
-                        }}
-                        className="w-full rounded-lg bg-amber-500 py-1.5 text-xs font-bold text-slate-950 hover:bg-amber-400 transition"
+                    return (
+                      <div
+                        key={stk.name}
+                        className={`flex flex-col justify-between rounded-xl border p-3.5 transition ${
+                          low
+                            ? 'border-rose-500/80 bg-rose-950/30 shadow-md shadow-rose-950/40'
+                            : 'border-slate-800 bg-slate-900/70 hover:border-amber-500/50 hover:bg-slate-900'
+                        }`}
                       >
-                        + Add to Bill
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
+                        <div>
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="font-bold text-white text-xs leading-snug">
+                              {stk.name}
+                            </div>
+                            {out ? (
+                              <span className="shrink-0 px-2 py-0.5 rounded text-[10px] font-black bg-rose-600 text-white animate-pulse">
+                                Out of Stock
+                              </span>
+                            ) : low ? (
+                              <span className="shrink-0 px-2 py-0.5 rounded text-[10px] font-black bg-rose-500/30 text-rose-300 border border-rose-500/60">
+                                🚨 Low Stock
+                              </span>
+                            ) : null}
+                          </div>
+
+                          <div className="mt-2 flex items-center justify-between text-[11px] text-slate-400">
+                            <span>{countryCfg.itemCodeLabel}: <b className="font-mono text-slate-200">{stk.hsn}</b></span>
+                            <span className={`font-bold px-1.5 py-0.5 rounded text-[10px] ${
+                              stk.gst === 5 ? 'bg-emerald-500/20 text-emerald-300' : 'bg-orange-500/20 text-orange-300'
+                            }`}>
+                              {stk.gst}% {countryCfg.taxName}
+                            </span>
+                          </div>
+
+                          {stk.defaultBuy ? (
+                            <div className="mt-1 text-[11px] text-slate-400">
+                              Cost: <b className="text-slate-200">{currency}{formatIntegerINR(stk.defaultBuy)}</b>
+                            </div>
+                          ) : null}
+
+                          {/* Inventory Status Bar with Threshold */}
+                          <div className={`mt-2.5 rounded-lg p-2 text-xs border ${
+                            low ? 'border-rose-500/50 bg-rose-950/40' : 'border-slate-800 bg-slate-950'
+                          }`}>
+                            <div className="flex items-center justify-between text-[11px]">
+                              <span className="text-slate-400">Inventory Status:</span>
+                              <span className={`font-black font-mono px-2 py-0.5 rounded text-xs ${
+                                low ? 'bg-rose-600 text-white' : 'bg-emerald-950 text-emerald-300'
+                              }`}>
+                                {qty} {unit}
+                              </span>
+                            </div>
+                            <div className="mt-1 flex items-center justify-between text-[10px]">
+                              <span className="text-slate-400">Min Alert Threshold:</span>
+                              <span className="text-amber-400 font-bold">{threshold} {unit}</span>
+                            </div>
+                            {low && (
+                              <div className="mt-1 text-[10px] font-bold text-rose-400 flex items-center gap-1">
+                                <AlertTriangle className="h-3 w-3 shrink-0" />
+                                Vendor Reorder Recommended!
+                              </div>
+                            )}
+
+                            {/* Quick +/- buttons */}
+                            {onUpdateStockItem && (
+                              <div className="mt-2 pt-1.5 border-t border-slate-800/80 flex items-center justify-end gap-1.5">
+                                <button
+                                  type="button"
+                                  onClick={() => handleUpdateStockQty(stk, -1)}
+                                  className="h-5 px-2 rounded bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs"
+                                  title="Decrease by 1"
+                                >
+                                  - 1
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleUpdateStockQty(stk, +1)}
+                                  className="h-5 px-2 rounded bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs"
+                                  title="Increase by 1"
+                                >
+                                  + 1
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="mt-3 pt-2.5 border-t border-slate-800/80 flex items-center justify-between">
+                          <button
+                            onClick={() => {
+                              const newItem: InvoiceItem = {
+                                id: Date.now(),
+                                name: stk.name,
+                                hsn: stk.hsn,
+                                gst: stk.gst,
+                                qty: 1,
+                                unit: unit || (stk.name.includes('Cable') || stk.name.includes('Pipe') || stk.name.includes('Wire')
+                                  ? 'Mtr.'
+                                  : stk.name.includes('Service') || stk.name.includes('Charges')
+                                  ? 'Job'
+                                  : 'NOS'),
+                                buyRate: stk.defaultBuy || 1000,
+                                rate: Math.round((stk.defaultBuy || 1000) * 1.3),
+                                serialNumbers: '',
+                              };
+                              onItemsChange([...items, newItem]);
+                              setIsCatalogModalOpen(false);
+                            }}
+                            className="w-full rounded-lg bg-amber-500 py-1.5 text-xs font-bold text-slate-950 hover:bg-amber-400 transition"
+                          >
+                            + Add to Bill
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           </div>
         </div>

@@ -508,10 +508,26 @@ export default function App() {
     localStorage.setItem('nb_stocks_library', JSON.stringify(updated));
   };
 
+  const handleUpdateStockItem = (updatedItem: StockItem) => {
+    const updated = stockLibrary.map((s) => (s.name === updatedItem.name ? updatedItem : s));
+    setStockLibrary(updated);
+    localStorage.setItem('nb_stocks_library', JSON.stringify(updated));
+  };
+
   const handleDeleteStockItem = (name: string) => {
     const updated = stockLibrary.filter((s) => s.name !== name);
     setStockLibrary(updated);
     localStorage.setItem('nb_stocks_library', JSON.stringify(updated));
+  };
+
+  // Safe handler to close admin modal and clean any #/owner or ?admin query params from URL
+  const handleCloseAdmin = () => {
+    setIsAdminOpen(false);
+    try {
+      if (window.location.hash || window.location.search) {
+        window.history.replaceState(null, '', window.location.pathname);
+      }
+    } catch {}
   };
 
   // Save Settings handler
@@ -1007,6 +1023,7 @@ export default function App() {
               onTargetPriceChange={setTargetPrice}
               stockLibrary={stockLibrary}
               onAddStockItem={handleAddStockItem}
+              onUpdateStockItem={handleUpdateStockItem}
               onDeleteStockItem={handleDeleteStockItem}
               currency={currency}
               country={country}
@@ -1044,7 +1061,6 @@ export default function App() {
               onCurrencyChange={setCurrency}
               license={license}
               onChangeLicense={() => setIsUnlockOpen(true)}
-              onOpenAdmin={() => setIsAdminOpen(true)}
               onSaveAll={handleSaveFirmSettings}
               onOpenMultiFirm={() => setIsMultiFirmOpen(true)}
               onLoadDemoData={handleLoadDemoSolarData}
@@ -1190,7 +1206,7 @@ export default function App() {
       {/* Owner / Admin License Manager Modal */}
       <AdminPortalModal
         isOpen={isAdminOpen}
-        onClose={() => setIsAdminOpen(false)}
+        onClose={handleCloseAdmin}
         onLicenseChanged={checkInitialLicense}
         onSwitchKey={handleSwitchKey}
         onLogout={handleLogoutKey}

@@ -14,6 +14,8 @@ import {
   AlertTriangle,
   RotateCcw,
   Eye,
+  EyeOff,
+  Shield,
   LogOut,
   Smartphone,
   Check,
@@ -85,28 +87,101 @@ export const AdminPortalModal: React.FC<AdminPortalModalProps> = ({
   const [newStaffRole, setNewStaffRole] = useState<'Accountant' | 'Sales Manager' | 'Technical Staff'>('Accountant');
   const [newStaffPin, setNewStaffPin] = useState('');
 
+  const [showPassword, setShowPassword] = useState(false);
+  const [isRecoveryMode, setIsRecoveryMode] = useState(false);
+  const [recoveryKeyInput, setRecoveryKeyInput] = useState('');
+  const [lockoutRemainingSecs, setLockoutRemainingSecs] = useState(0);
+
+  // Check lockout on mount and tick down timer
+  useEffect(() => {
+    const checkLockout = () => {
+      try {
+        const lockoutUntil = Number(localStorage.getItem('dexon_admin_lockout_until') || 0);
+        if (lockoutUntil > Date.now()) {
+          setLockoutRemainingSecs(Math.ceil((lockoutUntil - Date.now()) / 1000));
+        } else {
+          setLockoutRemainingSecs(0);
+        }
+      } catch {}
+    };
+
+    checkLockout();
+    const interval = setInterval(checkLockout, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
   useEffect(() => {
     if (isOpen && isAuthenticated) {
       loadLicenses();
     }
   }, [isOpen, isAuthenticated]);
 
+  const MASTER_EMERGENCY_RECOVERY_KEY = 'DEXON-MASTER-RECOVERY-SAHIL-2026';
+
   const handleLogin = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
+
+    if (lockoutRemainingSecs > 0) {
+      setErrorMsg(`⛔ Security Lockout: Try again in ${Math.floor(lockoutRemainingSecs / 60)}m ${lockoutRemainingSecs % 60}s or use Emergency Recovery.`);
+      return;
+    }
+
     setLoading(true);
     setErrorMsg('');
+
     try {
+      // 1. Check if user typed the emergency master recovery key directly
+      if (pin.trim().toUpperCase() === MASTER_EMERGENCY_RECOVERY_KEY) {
+        localStorage.removeItem('dexon_admin_failed_attempts');
+        localStorage.removeItem('dexon_admin_lockout_until');
+        setLockoutRemainingSecs(0);
+        setIsAuthenticated(true);
+        await loadLicenses();
+        return;
+      }
+
+      // 2. Regular PIN verification
       const isValid = await licenseService.verifyAdminPin(pin);
       if (isValid) {
+        localStorage.removeItem('dexon_admin_failed_attempts');
+        localStorage.removeItem('dexon_admin_lockout_until');
         setIsAuthenticated(true);
         await loadLicenses();
       } else {
-        setErrorMsg('❌ Access Denied: Incorrect Security PIN.');
+        const currentFailed = Number(localStorage.getItem('dexon_admin_failed_attempts') || 0) + 1;
+        localStorage.setItem('dexon_admin_failed_attempts', String(currentFailed));
+
+        if (currentFailed >= 3) {
+          const lockoutTime = Date.now() + 15 * 60 * 1000; // 15 minutes lockout
+          localStorage.setItem('dexon_admin_lockout_until', String(lockoutTime));
+          setLockoutRemainingSecs(15 * 60);
+          setErrorMsg('⛔ 3 Incorrect attempts! Admin Portal locked for 15 minutes to prevent hacking.');
+        } else {
+          setErrorMsg(`❌ Access Denied: Incorrect PIN / Password. (${3 - currentFailed} attempts remaining before 15m lockout)`);
+        }
       }
     } catch {
       setErrorMsg('Failed to authenticate admin');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleEmergencyRecovery = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (recoveryKeyInput.trim().toUpperCase() === MASTER_EMERGENCY_RECOVERY_KEY) {
+      localStorage.removeItem('dexon_admin_failed_attempts');
+      localStorage.removeItem('dexon_admin_lockout_until');
+      localStorage.removeItem('nb_admin_pin_hash'); // Reset custom PIN back to default
+      setLockoutRemainingSecs(0);
+      setIsAuthenticated(true);
+      setIsRecoveryMode(false);
+      setRecoveryKeyInput('');
+      setPin('');
+      alert('✅ Master Emergency Recovery Accepted!\n• Security lockout cleared.\n• Admin PIN restored to default (9429).\n• Welcome back, Owner!');
+      loadLicenses();
+    } else {
+      setErrorMsg('❌ Invalid Emergency Recovery Key! Check your confidential owner records.');
     }
   };
 
@@ -204,9 +279,9 @@ export const AdminPortalModal: React.FC<AdminPortalModalProps> = ({
 
   const handleWhatsAppSend = (item: any) => {
     const text = encodeURIComponent(
-      `*⚡ Nexbill Solar Pro — License Key Details*\n\n` +
+      `*⚡ Dexon Business Pro — License Key Details*\n\n` +
       `Hello *${item.clientName}*,\n` +
-      `Aapka Nexbill Solar Pro activation license key taiyar hai:\n\n` +
+      `Aapka Dexon Business Pro activation license key taiyar hai:\n\n` +
       `🔑 *License Key:* \`${item.key}\`\n` +
       `📦 *Plan:* ${item.plan}\n` +
       `📅 *Validity:* ${item.expiry}\n` +
@@ -219,6 +294,15 @@ export const AdminPortalModal: React.FC<AdminPortalModalProps> = ({
     const phone = item.clientPhone ? item.clientPhone.replace(/[^0-9]/g, '') : '';
     const url = phone ? `https://wa.me/91${phone}?text=${text}` : `https://wa.me/?text=${text}`;
     window.open(url, '_blank');
+  };
+
+  const handleSafeClose = () => {
+    try {
+      if (window.location.hash || window.location.search) {
+        window.history.replaceState(null, '', window.location.pathname);
+      }
+    } catch {}
+    onClose();
   };
 
   if (!isOpen) return null;
@@ -234,7 +318,7 @@ export const AdminPortalModal: React.FC<AdminPortalModalProps> = ({
             </div>
             <div>
               <h2 className="text-lg font-black text-white flex items-center gap-2">
-                Nexbill Admin License Manager
+                Dexon Admin License Manager
                 <span className="rounded-full bg-emerald-500/20 px-2.5 py-0.5 text-xs font-semibold text-emerald-400 border border-emerald-500/30">
                   Master Control
                 </span>
@@ -244,56 +328,149 @@ export const AdminPortalModal: React.FC<AdminPortalModalProps> = ({
               </p>
             </div>
           </div>
-          <button
-            onClick={onClose}
-            className="rounded-lg p-2 text-slate-400 hover:bg-slate-800 hover:text-white"
-          >
-            <X className="h-5 w-5" />
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleSafeClose}
+              className="flex items-center gap-1.5 rounded-xl border border-slate-700 bg-slate-800/80 px-3 py-1.5 text-xs font-bold text-slate-200 hover:bg-slate-700 hover:text-white transition"
+              title="Close Admin Panel and Return to Dashboard"
+            >
+              <span>Close / Exit</span>
+              <X className="h-4 w-4" />
+            </button>
+          </div>
         </div>
 
         {/* Modal Content */}
         {!isAuthenticated ? (
           <div className="flex flex-1 items-center justify-center p-6">
-            <form
-              onSubmit={handleLogin}
-              className="w-full max-w-sm rounded-2xl border border-slate-800 bg-slate-950 p-6 text-center shadow-2xl"
-            >
-              <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-500/10 text-amber-400">
-                <KeyRound className="h-6 w-6" />
-              </div>
-              <h3 className="text-base font-bold text-white">Owner Security PIN</h3>
-              <p className="mt-1 text-xs text-slate-400">
-                Sirf aap (Sahil) is panel ko access kar sakte hain. Customers ise bina PIN ke nahi khol sakte.
-              </p>
-
-              <div className="mt-4">
-                <input
-                  type="password"
-                  value={pin}
-                  onChange={(e) => setPin(e.target.value)}
-                  placeholder="Enter PIN"
-                  className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2.5 text-center text-lg font-bold tracking-widest text-amber-400 focus:border-amber-400 focus:outline-none"
-                  autoFocus
-                />
-              </div>
-
-              {errorMsg && (
-                <div className="mt-2 text-xs font-semibold text-rose-400">{errorMsg}</div>
-              )}
-
-              <button
-                type="submit"
-                disabled={loading}
-                className="mt-4 w-full rounded-xl bg-amber-500 py-2.5 text-sm font-extrabold text-slate-950 hover:bg-amber-400 disabled:opacity-50"
+            {!isRecoveryMode ? (
+              <form
+                onSubmit={handleLogin}
+                className="w-full max-w-sm rounded-2xl border border-slate-800 bg-slate-950 p-6 text-center shadow-2xl"
               >
-                {loading ? 'Verifying PIN...' : 'Open License Panel 🔓'}
-              </button>
+                <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-500/10 text-amber-400">
+                  <KeyRound className="h-6 w-6" />
+                </div>
+                <h3 className="text-base font-bold text-white">Owner Security Login</h3>
+                <p className="mt-1 text-xs text-slate-400">
+                  Sirf aap (Sahil) is panel ko access kar sakte hain. Bank-grade encrypted verification.
+                </p>
 
-              <div className="mt-3 text-[11px] text-slate-500 text-center">
-                🔒 Confidential Owner License Portal. Unauthorized access is strictly restricted.
-              </div>
-            </form>
+                {lockoutRemainingSecs > 0 && (
+                  <div className="mt-3 rounded-xl border border-rose-500/30 bg-rose-950/40 p-3 text-left">
+                    <div className="flex items-center gap-2 text-rose-400 font-bold text-xs">
+                      <AlertTriangle className="h-4 w-4 shrink-0" />
+                      Anti-Brute Force Lockout Active
+                    </div>
+                    <p className="mt-1 text-[11px] text-rose-300">
+                      3 galat attempts detect hue hain. System {Math.floor(lockoutRemainingSecs / 60)}m {lockoutRemainingSecs % 60}s ke liye lock hai.
+                    </p>
+                  </div>
+                )}
+
+                <div className="mt-4 relative">
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    value={pin}
+                    onChange={(e) => setPin(e.target.value)}
+                    placeholder="Enter Owner PIN / Password"
+                    disabled={lockoutRemainingSecs > 0}
+                    className="w-full rounded-xl border border-slate-700 bg-slate-900 px-4 py-2.5 pr-10 text-center text-lg font-bold tracking-widest text-amber-400 focus:border-amber-400 focus:outline-none disabled:opacity-50"
+                    autoFocus
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    tabIndex={-1}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200"
+                  >
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+
+                {errorMsg && (
+                  <div className="mt-2 text-xs font-semibold text-rose-400">{errorMsg}</div>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={loading || lockoutRemainingSecs > 0}
+                  className="mt-4 w-full rounded-xl bg-amber-500 py-2.5 text-sm font-extrabold text-slate-950 hover:bg-amber-400 disabled:opacity-50 transition"
+                >
+                  {loading ? 'Verifying...' : lockoutRemainingSecs > 0 ? `Locked (${lockoutRemainingSecs}s)` : 'Open License Panel 🔓'}
+                </button>
+
+                <div className="mt-4 pt-3 border-t border-slate-800 flex flex-col gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsRecoveryMode(true);
+                      setErrorMsg('');
+                    }}
+                    className="text-xs text-amber-400/90 hover:text-amber-300 flex items-center justify-center gap-1.5 transition"
+                  >
+                    <Shield className="h-3.5 w-3.5" />
+                    PIN bhool gaye ya Locked hai? Emergency Recovery
+                  </button>
+                  <div className="text-[11px] text-slate-500 text-center">
+                    🔒 Confidential Owner Portal. 3 incorrect attempts trigger a 15-minute lockout.
+                  </div>
+                </div>
+              </form>
+            ) : (
+              <form
+                onSubmit={handleEmergencyRecovery}
+                className="w-full max-w-md rounded-2xl border border-amber-500/40 bg-slate-950 p-6 text-center shadow-2xl"
+              >
+                <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-500/20 text-amber-400">
+                  <ShieldCheck className="h-7 w-7" />
+                </div>
+                <h3 className="text-base font-bold text-white">Owner Master Emergency Recovery</h3>
+                <p className="mt-1 text-xs text-slate-300">
+                  Agar PIN bhool gaye hain ya account lock ho gaya hai, to apna confidential Master Emergency Recovery Key daalein.
+                </p>
+
+                <div className="mt-4">
+                  <label className="block text-left text-xs font-bold text-amber-400 mb-1">
+                    Confidential Master Recovery Key
+                  </label>
+                  <input
+                    type="text"
+                    value={recoveryKeyInput}
+                    onChange={(e) => setRecoveryKeyInput(e.target.value.toUpperCase())}
+                    placeholder="DEXON-MASTER-RECOVERY-..."
+                    className="w-full rounded-xl border border-amber-500/50 bg-slate-900 px-3 py-2.5 text-center text-xs sm:text-sm font-mono font-bold tracking-wider text-amber-300 focus:border-amber-400 focus:outline-none"
+                    autoFocus
+                  />
+                  <p className="mt-1.5 text-[11px] text-slate-400 text-left">
+                    💡 Recovery key daalne se security lockout clear ho jayega aur default PIN restore ho jayega.
+                  </p>
+                </div>
+
+                {errorMsg && (
+                  <div className="mt-2 text-xs font-semibold text-rose-400">{errorMsg}</div>
+                )}
+
+                <div className="mt-5 flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsRecoveryMode(false);
+                      setErrorMsg('');
+                    }}
+                    className="flex-1 rounded-xl border border-slate-700 bg-slate-900 py-2.5 text-xs font-bold text-slate-300 hover:bg-slate-800"
+                  >
+                    Wapas PIN Login
+                  </button>
+                  <button
+                    type="submit"
+                    className="flex-1 rounded-xl bg-amber-500 py-2.5 text-xs font-extrabold text-slate-950 hover:bg-amber-400"
+                  >
+                    Restore & Unlock 🛡️
+                  </button>
+                </div>
+              </form>
+            )}
           </div>
         ) : (
           <div className="flex flex-1 flex-col overflow-hidden p-4 sm:p-6">
@@ -397,7 +574,7 @@ export const AdminPortalModal: React.FC<AdminPortalModalProps> = ({
                     try {
                       localStorage.removeItem('nb_owner_mode');
                     } catch {}
-                    onClose();
+                    handleSafeClose();
                   }}
                   className="flex items-center gap-1 rounded-lg border border-rose-500/50 bg-rose-950/40 px-2.5 py-1.5 text-xs font-bold text-rose-300 hover:bg-rose-900/60"
                   title="Lock Admin and hide it from screen"

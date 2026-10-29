@@ -152,6 +152,9 @@ export interface StockItem {
   hsn: string;
   gst: number;
   defaultBuy?: number;
+  quantity?: number; // Current in-stock quantity
+  minStock?: number; // User-defined low stock threshold (reorder alert when quantity <= minStock)
+  unit?: string; // Unit of measurement (NOS, Pcs, Mtr, Set, etc.)
 }
 
 export interface LicenseInfo {

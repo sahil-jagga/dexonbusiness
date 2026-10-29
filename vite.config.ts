@@ -15,9 +15,9 @@ export default defineConfig(() => {
         includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'icon.svg'],
         manifest: {
           id: '/',
-          name: 'Nexbill Solar Pro SaaS',
-          short_name: 'Nexbill',
-          description: 'Professional billing, PM Surya Ghar GST 70:30 calculator, WCC generator, books maintain, and zero-cost license management suite.',
+          name: 'Dexon Business Pro',
+          short_name: 'Dexon',
+          description: 'Professional multi-trade billing, GST calculation, quotation system, books maintain, and business management suite.',
           theme_color: '#020617',
           background_color: '#020617',
           display: 'standalone',

@@ -14,7 +14,6 @@ interface FirmSettingsDrawerProps {
   onCurrencyChange: (c: string) => void;
   license: LicenseInfo | null;
   onChangeLicense: () => void;
-  onOpenAdmin: () => void;
   onSaveAll: () => void;
   onOpenMultiFirm?: () => void;
   onLoadDemoData?: () => void;
@@ -31,7 +30,6 @@ export const FirmSettingsDrawer: React.FC<FirmSettingsDrawerProps> = ({
   onCurrencyChange,
   license,
   onChangeLicense,
-  onOpenAdmin,
   onSaveAll,
   onOpenMultiFirm,
   onLoadDemoData,
@@ -79,18 +77,12 @@ export const FirmSettingsDrawer: React.FC<FirmSettingsDrawerProps> = ({
           </div>
         </div>
 
-        <div className="mt-3 flex gap-2">
+        <div className="mt-3">
           <button
             onClick={onChangeLicense}
-            className="flex-1 rounded bg-slate-800 py-1.5 text-xs font-semibold text-amber-400 hover:bg-slate-700"
+            className="w-full rounded-xl bg-slate-850 border border-slate-700/80 py-2 text-xs font-bold text-amber-400 hover:bg-slate-800 hover:border-amber-500/50 transition shadow-sm"
           >
-            Change License
-          </button>
-          <button
-            onClick={onOpenAdmin}
-            className="flex-1 rounded border border-slate-700 bg-slate-900 py-1.5 text-xs font-semibold text-slate-300 hover:bg-slate-800"
-          >
-            Admin Panel
+            Change License Key
           </button>
         </div>
       </div>
