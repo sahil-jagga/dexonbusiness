@@ -14,7 +14,7 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({ isOpen, onClose, onE
 
   const handleWhatsAppBuy = (plan: string, price: string) => {
     const text = encodeURIComponent(
-      `Hi Sahil, I want to activate Nexbill (${plan} - ${price} - ${billingCycle.toUpperCase()}). Please send payment QR.`
+      `Hi Sahil, I want to activate Dexon (${plan} - ${price} - ${billingCycle.toUpperCase()}). Please send payment QR.`
     );
     window.open(`https://wa.me/919429842000?text=${text}`, '_blank');
   };

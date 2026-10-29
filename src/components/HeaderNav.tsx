@@ -160,25 +160,30 @@ export const HeaderNav: React.FC<HeaderNavProps> = ({
     window.location.reload();
   };
 
+  // Stable ref for onOpenAdmin to prevent re-triggering effects
+  const onOpenAdminRef = React.useRef(onOpenAdmin);
+  React.useEffect(() => {
+    onOpenAdminRef.current = onOpenAdmin;
+  }, [onOpenAdmin]);
+
   // Keyboard shortcut: Ctrl + Shift + A to open Admin (Owner only)
   React.useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'A' || e.key === 'a')) {
         e.preventDefault();
         setIsOwnerUnlocked(true);
-        onOpenAdmin();
+        onOpenAdminRef.current();
       }
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [onOpenAdmin]);
+  }, []);
 
   // Secret URL Route Detection (e.g. #/dexonjitender, #/owner, #/xyz, or ?admin=dexonjitender)
-  React.useEffect(() => {
-    let isHandling = false;
+  const hasHandledInitialUrl = React.useRef(false);
 
+  React.useEffect(() => {
     const checkSecretRoute = () => {
-      if (isHandling) return;
       const hash = (window.location.hash || '').toLowerCase();
       const path = (window.location.pathname || '').toLowerCase();
       const search = (window.location.search || '').toLowerCase();
@@ -198,25 +203,27 @@ export const HeaderNav: React.FC<HeaderNavProps> = ({
         search.includes(`admin=${customSlug}`);
 
       if (isSecret) {
-        isHandling = true;
+        if (hasHandledInitialUrl.current) return;
+        hasHandledInitialUrl.current = true;
         setIsOwnerUnlocked(true);
-        // Clean URL so the page is clean and modal can be closed without getting trapped
+
+        // Immediately clean URL so the page is clean and modal can be closed without getting trapped
         try {
-          if (window.location.hash || window.location.search) {
-            window.history.replaceState(null, '', window.location.pathname);
+          const cleanPath = window.location.pathname.replace(/\/(owner|dexonjitender|xyz)/gi, '') || '/';
+          window.history.replaceState(null, '', cleanPath);
+          if (window.location.hash) {
+            window.location.hash = '';
           }
         } catch {}
-        onOpenAdmin();
-        setTimeout(() => {
-          isHandling = false;
-        }, 500);
+
+        onOpenAdminRef.current();
       }
     };
 
     checkSecretRoute();
     window.addEventListener('hashchange', checkSecretRoute);
     return () => window.removeEventListener('hashchange', checkSecretRoute);
-  }, [onOpenAdmin]);
+  }, []);
 
   return (
     <header className="sticky top-0 z-40 border-b border-slate-800 bg-slate-950/95 backdrop-blur-md print:hidden shadow-lg shadow-black/40">

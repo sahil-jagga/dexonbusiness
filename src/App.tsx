@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   DocType,
   InvoiceItem,
@@ -521,14 +521,20 @@ export default function App() {
   };
 
   // Safe handler to close admin modal and clean any #/owner or ?admin query params from URL
-  const handleCloseAdmin = () => {
+  const handleCloseAdmin = useCallback(() => {
     setIsAdminOpen(false);
     try {
-      if (window.location.hash || window.location.search) {
-        window.history.replaceState(null, '', window.location.pathname);
+      const cleanPath = window.location.pathname.replace(/\/(owner|dexonjitender|xyz)/gi, '') || '/';
+      window.history.replaceState(null, '', cleanPath);
+      if (window.location.hash) {
+        window.location.hash = '';
       }
     } catch {}
-  };
+  }, []);
+
+  const handleOpenAdmin = useCallback(() => {
+    setIsAdminOpen(true);
+  }, []);
 
   // Save Settings handler
   const handleSaveFirmSettings = () => {
@@ -989,7 +995,7 @@ export default function App() {
         onOpenBooks={() => setIsBooksOpen(true)}
         onOpenBackup={() => setIsBackupOpen(true)}
         onOpenBranding={() => setIsBrandingOpen(true)}
-        onOpenAdmin={() => setIsAdminOpen(true)}
+        onOpenAdmin={handleOpenAdmin}
         onOpenLicenseChange={() => setIsUnlockOpen(true)}
         onLogoutKey={handleLogoutKey}
         onPrint={handlePrint}
@@ -1199,7 +1205,7 @@ export default function App() {
         onCountryChange={handleCountryChange}
         onOpenAdmin={() => {
           setIsLandingOpen(false);
-          setIsAdminOpen(true);
+          handleOpenAdmin();
         }}
       />
 

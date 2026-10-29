@@ -298,17 +298,37 @@ export const AdminPortalModal: React.FC<AdminPortalModalProps> = ({
 
   const handleSafeClose = () => {
     try {
-      if (window.location.hash || window.location.search) {
-        window.history.replaceState(null, '', window.location.pathname);
+      const cleanPath = window.location.pathname.replace(/\/(owner|dexonjitender|xyz)/gi, '') || '/';
+      window.history.replaceState(null, '', cleanPath);
+      if (window.location.hash) {
+        window.history.replaceState(null, '', cleanPath);
+        window.location.hash = '';
       }
     } catch {}
     onClose();
   };
 
+  // Close on Escape key press
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        handleSafeClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-3 sm:p-6 backdrop-blur-md">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-3 sm:p-6 backdrop-blur-md"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) handleSafeClose();
+      }}
+    >
       <div className="flex h-[92vh] w-full max-w-5xl flex-col rounded-3xl border border-amber-500/30 bg-slate-900 shadow-2xl text-slate-100 overflow-hidden">
         {/* Top Header */}
         <div className="flex items-center justify-between border-b border-slate-800 bg-slate-950 px-6 py-4">
@@ -330,11 +350,20 @@ export const AdminPortalModal: React.FC<AdminPortalModalProps> = ({
           </div>
           <div className="flex items-center gap-2">
             <button
+              type="button"
               onClick={handleSafeClose}
-              className="flex items-center gap-1.5 rounded-xl border border-slate-700 bg-slate-800/80 px-3 py-1.5 text-xs font-bold text-slate-200 hover:bg-slate-700 hover:text-white transition"
+              className="flex items-center gap-1.5 rounded-xl border border-slate-700 bg-slate-800/80 px-3 py-1.5 text-xs font-bold text-slate-200 hover:bg-rose-950/40 hover:border-rose-500/50 hover:text-white transition"
               title="Close Admin Panel and Return to Dashboard"
             >
               <span>Close / Exit</span>
+              <X className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
+              onClick={handleSafeClose}
+              className="rounded-xl border border-slate-700 bg-slate-800 p-2 text-slate-300 hover:bg-rose-600 hover:text-white hover:border-rose-500 transition"
+              title="Close (X)"
+            >
               <X className="h-4 w-4" />
             </button>
           </div>
@@ -1384,15 +1413,15 @@ export const AdminPortalModal: React.FC<AdminPortalModalProps> = ({
                         <div className="mt-2.5 flex flex-wrap gap-2.5">
                           <a
                             href="/api/download-zip"
-                            download="nexbill-website-deploy.zip"
+                            download="dexon-website-deploy.zip"
                             className="inline-flex items-center gap-2 rounded-xl bg-amber-500 px-4 py-2 font-bold text-slate-950 hover:bg-amber-400 text-xs shadow-md shadow-amber-500/20"
                           >
                             <Download className="h-4 w-4" />
                             Download Ready Website (.ZIP) — cPanel / Hostinger Ke Liye
                           </a>
                           <a
-                            href="/Nexbill_Solar_Pro_Offline.html"
-                            download="Nexbill_Solar_Pro_Offline.html"
+                            href="/Dexon_Solar_Pro_Offline.html"
+                            download="Dexon_Solar_Pro_Offline.html"
                             className="inline-flex items-center gap-2 rounded-xl border border-emerald-500/50 bg-emerald-950/40 px-4 py-2 font-bold text-emerald-300 hover:bg-emerald-900/50 text-xs"
                           >
                             <Download className="h-4 w-4" />

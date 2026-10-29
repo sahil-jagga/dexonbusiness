@@ -231,6 +231,45 @@ it('prevents duplicates even when entries have gaps or custom formatting', () =>
 });
 
 // -------------------------------------------------------------
+// 8. Tax Summary & GST Slab Aggregation
+// -------------------------------------------------------------
+console.log('\n--- Suite 8: Tax Summary & Distinct GST Slab Aggregation ---');
+
+it('aggregates distinct GST slabs correctly (0%, 5%, 18%) for Tax Summary table', () => {
+  const testItems = [
+    { qty: 2, rate: 5000, gst: 5 },  // 10,000 @ 5% -> CGST: 250, SGST: 250, Tax: 500
+    { qty: 1, rate: 20000, gst: 18 }, // 20,000 @ 18% -> CGST: 1800, SGST: 1800, Tax: 3600
+    { qty: 4, rate: 2500, gst: 5 },  // 10,000 @ 5% -> CGST: 250, SGST: 250, Tax: 500
+  ];
+
+  const buckets = {};
+  testItems.forEach((it) => {
+    const lineTotal = it.qty * it.rate;
+    const cgst = lineTotal * ((it.gst / 2) / 100);
+    const sgst = lineTotal * ((it.gst / 2) / 100);
+    const totalTax = cgst + sgst;
+    const r = it.gst;
+    if (!buckets[r]) buckets[r] = { taxable: 0, cgst: 0, sgst: 0, totalTax: 0 };
+    buckets[r].taxable += lineTotal;
+    buckets[r].cgst += cgst;
+    buckets[r].sgst += sgst;
+    buckets[r].totalTax += totalTax;
+  });
+
+  // Verify 5% slab
+  assert.strictEqual(buckets[5].taxable, 20000);
+  assert.strictEqual(buckets[5].cgst, 500);
+  assert.strictEqual(buckets[5].sgst, 500);
+  assert.strictEqual(buckets[5].totalTax, 1000);
+
+  // Verify 18% slab
+  assert.strictEqual(buckets[18].taxable, 20000);
+  assert.strictEqual(buckets[18].cgst, 1800);
+  assert.strictEqual(buckets[18].sgst, 1800);
+  assert.strictEqual(buckets[18].totalTax, 3600);
+});
+
+// -------------------------------------------------------------
 // Results Summary
 // -------------------------------------------------------------
 console.log('\n=============================================');

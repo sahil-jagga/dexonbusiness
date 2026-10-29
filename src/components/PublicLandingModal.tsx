@@ -48,9 +48,9 @@ const INDUSTRY_CONTENT: Partial<Record<IndustryType, {
 }>> = {
   solar: {
     badge: 'Solar EPC V2.5',
-    title: 'NEXBILL SOLAR',
+    title: 'DEXON SOLAR',
     tagline: 'Dedicated Invoicing, 70:30 GST Optimization & WCC Tool for Solar EPC Vendors',
-    headline: 'Why Indian Solar Installers Choose Nexbill over Generic Billing Apps',
+    headline: 'Why Indian Solar Installers Choose Dexon over Generic Billing Apps',
     subheadline: 'Built specifically for PM Surya Ghar: Muft Bijli Yojana & State DISCOM compliance',
     planTarget: 'Solar EPC & Rooftop Contractors',
     features: [
@@ -76,9 +76,9 @@ const INDUSTRY_CONTENT: Partial<Record<IndustryType, {
   },
   electrical: {
     badge: 'Electrical Edition',
-    title: 'NEXBILL ELECTRICAL',
+    title: 'DEXON ELECTRICAL',
     tagline: 'Fast GST Billing, Cable Multi-Units (Mtr/Coil) & Inventory for Electrical Dealers',
-    headline: 'Why Electrical Contractors & Hardware Dealers Choose Nexbill over Generic Billing Apps',
+    headline: 'Why Electrical Contractors & Hardware Dealers Choose Dexon over Generic Billing Apps',
     subheadline: 'Preloaded Polycab/Havells catalog, verified HSN codes (8544/8536) & wire coil calculators',
     planTarget: 'Electrical Dealers & Contractors',
     features: [
@@ -104,9 +104,9 @@ const INDUSTRY_CONTENT: Partial<Record<IndustryType, {
   },
   automobile: {
     badge: 'Automobile Edition',
-    title: 'NEXBILL AUTO',
+    title: 'DEXON AUTO',
     tagline: 'Smart Billing, Dual GST (18% & 28%) & Spares Management for Workshops & Retailers',
-    headline: 'Why Auto Spare Parts & Workshop Owners Choose Nexbill over Generic Billing Apps',
+    headline: 'Why Auto Spare Parts & Workshop Owners Choose Dexon over Generic Billing Apps',
     subheadline: 'Engine oils, batteries, tyres, two-wheeler spares & mechanic job work billing with zero hassle',
     planTarget: 'Auto Spare Retailers & Workshops',
     features: [
@@ -132,9 +132,9 @@ const INDUSTRY_CONTENT: Partial<Record<IndustryType, {
   },
   finance: {
     badge: 'CA & Tax Edition',
-    title: 'NEXBILL FINANCE & CA',
+    title: 'DEXON FINANCE & CA',
     tagline: 'Multi-Firm Billing, Section 44AD ITR Calculator & Smart Bank Statement Parser',
-    headline: 'Why CA Firms, Tax Consultants & Accountants Choose Nexbill over Generic Billing Apps',
+    headline: 'Why CA Firms, Tax Consultants & Accountants Choose Dexon over Generic Billing Apps',
     subheadline: 'VouchrIt AI bank statement parser, Sec 44AD presumptive tax calculations & multi-GSTIN portal',
     planTarget: 'CA Firms & Tax Consultants',
     features: [
@@ -160,9 +160,9 @@ const INDUSTRY_CONTENT: Partial<Record<IndustryType, {
   },
   general: {
     badge: 'All-in-One Edition',
-    title: 'NEXBILL BIZ',
+    title: 'DEXON BIZ',
     tagline: 'Professional GST Billing, Dynamic UPI QR Code, Cash/Bank Daybook & Profit Analytics',
-    headline: 'Why Indian Wholesale Traders & Retail Distributors Choose Nexbill over Generic Billing Apps',
+    headline: 'Why Indian Wholesale Traders & Retail Distributors Choose Dexon over Generic Billing Apps',
     subheadline: 'Clean GST tax invoices, customer CRM, digital signatures, and 100% offline-ready PWA',
     planTarget: 'Wholesale & Retail Businesses',
     features: [
@@ -296,7 +296,7 @@ export const PublicLandingModal: React.FC<PublicLandingModalProps> = ({
 
   const handleWhatsAppBuy = (plan: string, price: string) => {
     const text = encodeURIComponent(
-      `Hi Sahil, I want to purchase Nexbill (${currentContent.title} - ${plan} - ${price}). Please share payment details & activation key.`
+      `Hi Sahil, I want to purchase Dexon (${currentContent.title} - ${plan} - ${price}). Please share payment details & activation key.`
     );
     window.open(`https://wa.me/919429842000?text=${text}`, '_blank');
   };
@@ -338,7 +338,7 @@ export const PublicLandingModal: React.FC<PublicLandingModalProps> = ({
               <div
                 onClick={handleSecretLogoClick}
                 className="flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/30 cursor-pointer select-none"
-                title="Nexbill Multi-Industry Suite"
+                title="Dexon Multi-Industry Suite"
               >
                 <Sun className="h-7 w-7 animate-spin-slow" />
               </div>

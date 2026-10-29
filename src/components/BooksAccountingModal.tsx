@@ -264,7 +264,7 @@ export const BooksAccountingModal: React.FC<BooksAccountingModalProps> = ({
           refNo: inv.invNo,
           partyName: inv.customerName,
           source: 'INVOICE_SYNC',
-          notes: `Auto-synced from Nexbill Billing Registry (${inv.itemsCount} items)`,
+          notes: `Auto-synced from Dexon Billing Registry (${inv.itemsCount} items)`,
         });
         addedCount++;
       }

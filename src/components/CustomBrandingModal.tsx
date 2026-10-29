@@ -34,7 +34,7 @@ export const CustomBrandingModal: React.FC<CustomBrandingModalProps> = ({
   const handlePriorityWhatsApp = () => {
     const text = encodeURIComponent(
       `🚨 *VIP Priority Support Request (Business Plan Subscriber)*\n` +
-      `Hello Sahil, I am using Nexbill Solar Pro Business Edition. I need priority assistance.`
+      `Hello Sahil, I am using Dexon Solar Pro Business Edition. I need priority assistance.`
     );
     window.open(`https://wa.me/919429842000?text=${text}`, '_blank');
   };

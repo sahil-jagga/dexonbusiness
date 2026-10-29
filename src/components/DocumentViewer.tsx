@@ -228,7 +228,7 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({
     taxBuckets[r].taxable += it.lineTotal;
     taxBuckets[r].cgst += it.cgst;
     taxBuckets[r].sgst += it.sgst;
-    taxBuckets[r].totalTax += (it as any).totalTax || 0;
+    taxBuckets[r].totalTax += showCgstSgst ? (it.cgst + it.sgst) : ((it as any).totalTax || (it.lineTotal * (r / 100)));
   });
 
   // Handlers for Items
@@ -892,110 +892,163 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({
     );
   };
 
-  // Tax Summary / Slab Breakdown Table (For Accounting & Tax Authority Compliance)
+  // Dedicated 'Tax Summary' Section at bottom of Invoice Preview
   const renderGstBreakdown = (thClass: string) => {
     const sortedEntries = Object.entries(taxBuckets).sort((a, b) => Number(a[0]) - Number(b[0]));
 
     const ruleNote =
       trade === 'solar'
         ? (showCgstSgst
-            ? 'GST calculated under CGST & SGST Rules 2017 & CBIC Notification No. 8/2021-CT(R) for Solar EPC Composite Supply (70% goods + 30% services) or applicable statutory HSN/SAC classifications.'
+            ? 'Tax Summary calculated under statutory CGST & SGST Rules 2017 & CBIC Notification No. 8/2021-CT(R) for Solar EPC Composite Supply (70% goods + 30% services) or applicable statutory HSN/SAC classifications.'
             : countryConfig.taxRuleNote)
         : countryConfig.taxRuleNote;
 
     return (
-      <div className="mt-3 flex flex-col sm:flex-row items-stretch sm:items-start justify-between gap-3">
-        {/* Left: Tax Accounting Note */}
-        <div className="flex-1 text-[9.5px] text-slate-600 bg-slate-50/80 rounded-lg p-2.5 border border-slate-200">
-          <div className="font-bold text-slate-800 uppercase tracking-wider text-[9px] mb-0.5">
-            {countryConfig.taxName} Accounting Summary & Compliance Note
-          </div>
-          <p className="leading-relaxed">{ruleNote}</p>
+      <div className="mt-4 pt-2 border-t border-slate-300">
+        <div className="flex items-center justify-between mb-1.5">
+          <h4 className="text-[11px] font-black uppercase tracking-wider text-slate-800 flex items-center gap-1.5">
+            <Receipt className="h-3.5 w-3.5 text-emerald-700" />
+            Tax Summary (GST Slab Breakdown)
+          </h4>
+          <span className="text-[9px] text-slate-500 font-medium">
+            Distinct Slabs: {sortedEntries.length} | Currency: {currency}
+          </span>
         </div>
 
-        {/* Right: Structured Tax Summary Table */}
-        <div className="shrink-0 overflow-x-auto">
-          <table className="border-collapse text-[9px] min-w-[340px] border border-slate-300 rounded-lg overflow-hidden shadow-xs">
+        {/* Full-width Tax Summary Table breaking down Taxable, CGST, and SGST for each distinct slab */}
+        <div className="overflow-x-auto rounded-lg border border-slate-300 bg-white shadow-xs">
+          <table className="w-full border-collapse text-[10px]">
             <thead>
               <tr className={thClass}>
-                <th
-                  colSpan={showCgstSgst ? 5 : 4}
-                  className="py-1 px-2.5 text-left uppercase tracking-wider font-extrabold text-[9px] border-b border-white/20"
-                >
-                  {countryConfig.taxSummaryTitle}
+                <th className="py-1.5 px-3 text-left font-black tracking-wide border-r border-white/20">
+                  GST Slab (Rate)
                 </th>
-              </tr>
-              <tr className="bg-slate-100 text-slate-800 font-bold border-b border-slate-300">
-                <th className="py-1 px-2 text-center">Tax Slab</th>
-                <th className="py-1 px-2 text-right">Taxable ({currency})</th>
+                <th className="py-1.5 px-3 text-right font-black tracking-wide border-r border-white/20">
+                  Taxable Amount ({currency})
+                </th>
                 {showCgstSgst ? (
                   <>
-                    <th className="py-1 px-2 text-right">CGST</th>
-                    <th className="py-1 px-2 text-right">SGST</th>
+                    <th className="py-1.5 px-3 text-right font-black tracking-wide border-r border-white/20">
+                      CGST Rate
+                    </th>
+                    <th className="py-1.5 px-3 text-right font-black tracking-wide border-r border-white/20">
+                      CGST Amount ({currency})
+                    </th>
+                    <th className="py-1.5 px-3 text-right font-black tracking-wide border-r border-white/20">
+                      SGST Rate
+                    </th>
+                    <th className="py-1.5 px-3 text-right font-black tracking-wide border-r border-white/20">
+                      SGST Amount ({currency})
+                    </th>
                   </>
                 ) : (
-                  <th className="py-1 px-2 text-right">Rate (%)</th>
+                  <>
+                    <th className="py-1.5 px-3 text-right font-black tracking-wide border-r border-white/20">
+                      Tax Rate
+                    </th>
+                    <th className="py-1.5 px-3 text-right font-black tracking-wide border-r border-white/20">
+                      Tax Amount ({currency})
+                    </th>
+                  </>
                 )}
-                <th className="py-1 px-2 text-right">Total Tax ({currency})</th>
+                <th className="py-1.5 px-3 text-right font-black tracking-wide">
+                  Total Tax Amount ({currency})
+                </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-200 bg-white">
+            <tbody className="divide-y divide-slate-200">
               {sortedEntries.length > 0 ? (
                 sortedEntries.map(([rateStr, vals]) => {
                   const rate = Number(rateStr);
                   const halfRate = (rate / 2).toFixed(1).replace('.0', '');
+                  const rowTax = showCgstSgst ? vals.cgst + vals.sgst : vals.totalTax;
                   return (
-                    <tr key={rateStr} className="hover:bg-slate-50">
-                      <td className="py-1 px-2 text-center font-bold text-slate-900">
-                        {rate}% {countryConfig.taxName}
+                    <tr key={rateStr} className="hover:bg-slate-50 transition-colors">
+                      <td className="py-1.5 px-3 text-left font-bold text-slate-900 border-r border-slate-200">
+                        <span className="inline-block rounded px-1.5 py-0.5 text-[9.5px] font-bold bg-slate-100 text-slate-800 border border-slate-300">
+                          {rate}% {countryConfig.taxName}
+                        </span>
                       </td>
-                      <td className="py-1 px-2 text-right font-medium">{formatINR(vals.taxable)}</td>
+                      <td className="py-1.5 px-3 text-right font-semibold text-slate-800 border-r border-slate-200">
+                        {formatINR(vals.taxable)}
+                      </td>
                       {showCgstSgst ? (
                         <>
-                          <td className="py-1 px-2 text-right text-emerald-800">
-                            <span className="text-[8px] text-slate-400 mr-1">({halfRate}%)</span>
+                          <td className="py-1.5 px-3 text-right text-slate-600 border-r border-slate-200 font-medium">
+                            {halfRate}%
+                          </td>
+                          <td className="py-1.5 px-3 text-right text-emerald-800 font-semibold border-r border-slate-200">
                             {formatINR(vals.cgst)}
                           </td>
-                          <td className="py-1 px-2 text-right text-emerald-800">
-                            <span className="text-[8px] text-slate-400 mr-1">({halfRate}%)</span>
+                          <td className="py-1.5 px-3 text-right text-slate-600 border-r border-slate-200 font-medium">
+                            {halfRate}%
+                          </td>
+                          <td className="py-1.5 px-3 text-right text-emerald-800 font-semibold border-r border-slate-200">
                             {formatINR(vals.sgst)}
                           </td>
                         </>
                       ) : (
-                        <td className="py-1 px-2 text-right text-slate-600 font-semibold">{rate}%</td>
+                        <>
+                          <td className="py-1.5 px-3 text-right text-slate-600 border-r border-slate-200 font-medium">
+                            {rate}%
+                          </td>
+                          <td className="py-1.5 px-3 text-right text-slate-800 font-semibold border-r border-slate-200">
+                            {formatINR(vals.totalTax)}
+                          </td>
+                        </>
                       )}
-                      <td className="py-1 px-2 text-right font-bold text-slate-950">
-                        {formatINR(showCgstSgst ? vals.cgst + vals.sgst : vals.totalTax)}
+                      <td className="py-1.5 px-3 text-right font-black text-slate-950">
+                        {formatINR(rowTax)}
                       </td>
                     </tr>
                   );
                 })
               ) : (
                 <tr>
-                  <td colSpan={showCgstSgst ? 5 : 4} className="py-1 px-2 text-center text-slate-400 italic">
-                    No taxable items
+                  <td colSpan={showCgstSgst ? 7 : 5} className="py-2 px-3 text-center text-slate-400 italic">
+                    No taxable items added to the invoice yet.
                   </td>
                 </tr>
               )}
             </tbody>
             <tfoot>
-              <tr className="border-t-2 border-slate-300 font-black bg-slate-100 text-slate-950">
-                <td className="py-1.5 px-2 text-center uppercase tracking-wide">Total</td>
-                <td className="py-1.5 px-2 text-right">{formatINR(totalTaxable)}</td>
+              <tr className="border-t-2 border-slate-400 font-black bg-slate-100 text-slate-950">
+                <td className="py-2 px-3 text-left uppercase tracking-wider font-black border-r border-slate-300">
+                  Total
+                </td>
+                <td className="py-2 px-3 text-right font-black border-r border-slate-300">
+                  {formatINR(totalTaxable)}
+                </td>
                 {showCgstSgst ? (
                   <>
-                    <td className="py-1.5 px-2 text-right text-emerald-800">{formatINR(totalCgst)}</td>
-                    <td className="py-1.5 px-2 text-right text-emerald-800">{formatINR(totalSgst)}</td>
+                    <td className="py-2 px-3 text-right text-slate-500 border-r border-slate-300">—</td>
+                    <td className="py-2 px-3 text-right text-emerald-900 font-black border-r border-slate-300">
+                      {formatINR(totalCgst)}
+                    </td>
+                    <td className="py-2 px-3 text-right text-slate-500 border-r border-slate-300">—</td>
+                    <td className="py-2 px-3 text-right text-emerald-900 font-black border-r border-slate-300">
+                      {formatINR(totalSgst)}
+                    </td>
                   </>
                 ) : (
-                  <td className="py-1.5 px-2 text-right text-slate-500">—</td>
+                  <>
+                    <td className="py-2 px-3 text-right text-slate-500 border-r border-slate-300">—</td>
+                    <td className="py-2 px-3 text-right text-slate-900 font-black border-r border-slate-300">
+                      {formatINR(totalSingleTax)}
+                    </td>
+                  </>
                 )}
-                <td className="py-1.5 px-2 text-right font-black text-slate-950">
+                <td className="py-2 px-3 text-right font-black text-slate-950 text-[10.5px]">
                   {formatINR(showCgstSgst ? totalCgst + totalSgst : totalSingleTax)}
                 </td>
               </tr>
             </tfoot>
           </table>
+        </div>
+
+        {/* Statutory Compliance Note below table */}
+        <div className="mt-1.5 text-[9px] text-slate-500 leading-snug">
+          <b>Tax Note:</b> {ruleNote}
         </div>
       </div>
     );
