@@ -20,7 +20,8 @@ import { maskAadhaar } from '../utils/privacy';
 import { t, Language } from '../utils/i18n';
 import { CountryCode, getCountryConfig } from '../config/countries';
 import { TRADE_CONFIGS } from '../config/trades';
-import { Trash2, Plus, Sun, ShieldCheck, ChevronUp, ChevronDown, GripVertical, CheckCircle2, Receipt, Search } from 'lucide-react';
+import { Trash2, Plus, Sun, ShieldCheck, ChevronUp, ChevronDown, GripVertical, CheckCircle2, Receipt, Search, FileSpreadsheet } from 'lucide-react';
+import { exportInvoiceToExcel } from '../utils/exportToExcel';
 
 interface DocumentViewerProps {
   docType: DocType;
@@ -420,10 +421,21 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({
 
   // Meta Information Bar
   const renderMetaRow = (bgClass: string, textClass: string) => {
+    const invLabel =
+      docType === 'invoice'
+        ? 'Invoice No:'
+        : docType === 'quotation'
+        ? 'Quotation No:'
+        : docType === 'wcc'
+        ? 'Certificate No:'
+        : docType === 'receipt'
+        ? 'Receipt No:'
+        : 'Invoice No:';
+
     return (
       <div className={`mt-3 flex flex-wrap items-center justify-between gap-2 rounded-lg ${bgClass} px-3 py-2 text-[10px] ${textClass}`}>
         <div>
-          <b>Doc No:</b>{' '}
+          <b>{invLabel}</b>{' '}
           <input
             type="text"
             value={meta.invNo}
@@ -451,8 +463,62 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({
             className="border-b border-dashed border-current bg-transparent focus:outline-none w-24"
           />
         </div>
-        <div>
-          <b>Place of Supply:</b> {meta.placeOfSupply || 'State / Region (00)'}
+        <div className="flex items-center gap-1">
+          <b>Place of Supply:</b>{' '}
+          <span className="print:hidden">
+            <input
+              type="text"
+              list="place-of-supply-list"
+              value={meta.placeOfSupply && meta.placeOfSupply !== 'State (00)' ? meta.placeOfSupply : '08-Rajasthan'}
+              onChange={(e) => onMetaChange({ ...meta, placeOfSupply: e.target.value })}
+              placeholder="e.g. 08-Rajasthan"
+              className="border-b border-dashed border-current bg-transparent font-bold focus:outline-none w-36 text-[10px]"
+              title="Select your GST State or type any State/Country name"
+            />
+            <datalist id="place-of-supply-list">
+              <option value="01-Jammu & Kashmir" />
+              <option value="02-Himachal Pradesh" />
+              <option value="03-Punjab" />
+              <option value="04-Chandigarh" />
+              <option value="05-Uttarakhand" />
+              <option value="06-Haryana" />
+              <option value="07-Delhi" />
+              <option value="08-Rajasthan" />
+              <option value="09-Uttar Pradesh" />
+              <option value="10-Bihar" />
+              <option value="11-Sikkim" />
+              <option value="12-Arunachal Pradesh" />
+              <option value="13-Nagaland" />
+              <option value="14-Manipur" />
+              <option value="15-Mizoram" />
+              <option value="16-Tripura" />
+              <option value="17-Meghalaya" />
+              <option value="18-Assam" />
+              <option value="19-West Bengal" />
+              <option value="20-Jharkhand" />
+              <option value="21-Odisha" />
+              <option value="22-Chhattisgarh" />
+              <option value="23-Madhya Pradesh" />
+              <option value="24-Gujarat" />
+              <option value="26-Dadra & Nagar Haveli and Daman & Diu" />
+              <option value="27-Maharashtra" />
+              <option value="29-Karnataka" />
+              <option value="30-Goa" />
+              <option value="31-Lakshadweep" />
+              <option value="32-Kerala" />
+              <option value="33-Tamil Nadu" />
+              <option value="34-Puducherry" />
+              <option value="35-Andaman & Nicobar Islands" />
+              <option value="36-Telangana" />
+              <option value="37-Andhra Pradesh" />
+              <option value="38-Ladakh" />
+              <option value="97-Other Territory" />
+              <option value="Overseas / International Export" />
+            </datalist>
+          </span>
+          <span className="hidden print:inline font-bold">
+            {meta.placeOfSupply && meta.placeOfSupply !== 'State (00)' ? meta.placeOfSupply : '08-Rajasthan'}
+          </span>
         </div>
         <div>
           <b>Tax Applicable:</b> {countryConfig.taxLabel}
@@ -879,13 +945,32 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({
           </tfoot>
         </table>
 
-        {/* Add Row Button in Table */}
-        <div className="mt-2 flex justify-start print:hidden">
+        {/* Table Action Controls: Add Row & Export Table to Excel */}
+        <div className="mt-2.5 flex flex-wrap items-center justify-between gap-2 print:hidden">
           <button
+            type="button"
             onClick={handleAddItemRow}
-            className="flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-100 shadow-sm"
+            className="flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-100 shadow-sm transition active:scale-95"
           >
             <Plus className="h-3.5 w-3.5 text-emerald-600" /> + Add Row
+          </button>
+
+          <button
+            type="button"
+            onClick={() => exportInvoiceToExcel({
+              items,
+              meta,
+              firm,
+              customer,
+              currency,
+              showBuyRates,
+              docType,
+            })}
+            className="flex items-center gap-1.5 rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-800 hover:bg-emerald-100 transition shadow-sm active:scale-95"
+            title="Download this invoice table as an Excel (.xlsx) file"
+          >
+            <FileSpreadsheet className="h-3.5 w-3.5 text-emerald-600" />
+            <span>Export Table to Excel (.xlsx)</span>
           </button>
         </div>
       </div>

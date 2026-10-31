@@ -58,6 +58,12 @@ import { OfflineIndicator } from './components/OfflineIndicator';
 import { TradeSelectionModal } from './components/TradeSelectionModal';
 import { AuthModal } from './components/AuthModal';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { WhatsAppTemplateModal } from './components/WhatsAppTemplateModal';
+import { AppUpdateModal } from './components/AppUpdateModal';
+import { BugReportModal } from './components/BugReportModal';
+import { SalesTrendsModal } from './components/SalesTrendsModal';
+import { exportInvoiceToExcel } from './utils/exportToExcel';
+import { CURRENT_APP_VERSION } from './config/version';
 
 export default function App() {
   // License & Modals
@@ -66,6 +72,7 @@ export default function App() {
   const [isAdminOpen, setIsAdminOpen] = useState(false);
   const [isUpgradeOpen, setIsUpgradeOpen] = useState(false);
   const [isUnlockOpen, setIsUnlockOpen] = useState(false);
+  const [isSalesTrendsOpen, setIsSalesTrendsOpen] = useState(false);
   const [monthInvoiceCount, setMonthInvoiceCount] = useState(0);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
 
@@ -88,6 +95,41 @@ export default function App() {
   const [isBackupOpen, setIsBackupOpen] = useState(false);
   const [isBrandingOpen, setIsBrandingOpen] = useState(false);
   const [isThemeDesignerOpen, setIsThemeDesignerOpen] = useState(false);
+
+  // Automated WhatsApp Message Generator Modal
+  const [isWhatsAppModalOpen, setIsWhatsAppModalOpen] = useState(false);
+
+  // In-App Version & Update Modal
+  const [isUpdateModalOpen, setIsUpdateModalOpen] = useState(false);
+  const [installedVersion, setInstalledVersion] = useState<string>(() => {
+    try {
+      return localStorage.getItem('dexon_installed_version') || '2.4.0';
+    } catch {
+      return '2.4.0';
+    }
+  });
+
+  // Client Bug Report & Support Modal
+  const [isBugReportOpen, setIsBugReportOpen] = useState(false);
+
+  const handleApplyUpdate = async () => {
+    localStorage.setItem('dexon_installed_version', CURRENT_APP_VERSION);
+    setInstalledVersion(CURRENT_APP_VERSION);
+    if ('serviceWorker' in navigator) {
+      try {
+        const registrations = await navigator.serviceWorker.getRegistrations();
+        for (const reg of registrations) await reg.unregister();
+      } catch {}
+    }
+    if ('caches' in window) {
+      try {
+        const names = await caches.keys();
+        for (const name of names) await caches.delete(name);
+      } catch {}
+    }
+    alert('🎉 Dexon has been updated to v' + CURRENT_APP_VERSION + ' with latest bug fixes!');
+    window.location.reload();
+  };
 
   // App Layout State
   const [docType, setDocType] = useState<DocType>('invoice');
@@ -176,7 +218,7 @@ export default function App() {
     date: new Date().toISOString().split('T')[0],
     eway: '',
     quotRef: 'QUOT/2026/001',
-    placeOfSupply: 'State (00)',
+    placeOfSupply: '08-Rajasthan',
     reverseCharge: 'No',
     copyType: 'Original for Recipient',
   });
@@ -692,44 +734,23 @@ export default function App() {
     window.print();
   };
 
-  // WhatsApp Share Handler
+  // WhatsApp Share Handler — Automated Template Generator
   const handleWhatsAppShare = () => {
-    const totalAmount = items.reduce((acc, it) => {
-      const line = (it.rate || 0) * (it.qty || 1);
-      return acc + line * (1 + (it.gst || 0) / 100);
-    }, 0);
-
-    // Save to CRM history
     recordInvoiceHistory();
+    setIsWhatsAppModalOpen(true);
+  };
 
-    const tradeTitle = TRADE_CONFIGS[trade]?.title || 'Business Invoice';
-    const countryCfg = getCountryConfig(country);
-    const docLabel =
-      docType === 'invoice'
-        ? (country === 'IN' ? 'Tax Invoice' : `${countryCfg.taxName} Invoice`)
-        : docType === 'quotation'
-        ? (trade === 'solar' ? 'Solar Quotation' : `Quotation — ${TRADE_CONFIGS[trade]?.shortName || 'Estimate'}`)
-        : docType === 'receipt'
-        ? 'Payment / Margin Receipt'
-        : 'Estimate';
-
-    const text = encodeURIComponent(
-      `*⚡ ${firm.name || 'NexBill'} — ${docLabel}*\n\n` +
-      `👤 *Customer:* ${customer.name || 'Valued Customer'}\n` +
-      `📄 *Doc No:* ${meta.invNo} | *Date:* ${meta.date}\n` +
-      (trade === 'solar' && wcc.plantCapacityKw ? `☀️ *Plant:* ${wcc.plantCapacityKw}\n` : '') +
-      `💰 *Grand Total:* ${currency} ${formatIntegerINR(totalAmount)}\n\n` +
-      `*Bank Details:*\n` +
-      `Bank: ${bank.bankName || 'Available on request'}\n` +
-      (bank.accountNo ? `A/C: ${bank.accountNo} | IFSC: ${bank.ifsc}\n` : '') +
-      (bank.upiId ? `UPI: ${bank.upiId}\n\n` : '\n') +
-      (firm.mobile ? `_Contact: ${firm.mobile}_\n` : '') +
-      (trade === 'solar' ? `_PM Surya Ghar Muft Bijli Yojana Vendor_` : `_${tradeTitle} Vendor_`)
-    );
-
-    const phone = customer.mobile ? customer.mobile.replace(/[^0-9]/g, '') : '';
-    const url = phone ? `https://wa.me/91${phone}?text=${text}` : `https://wa.me/?text=${text}`;
-    window.open(url, '_blank');
+  // Export current invoice table data into Microsoft Excel (.xlsx) spreadsheet format
+  const handleExportInvoiceExcel = () => {
+    exportInvoiceToExcel({
+      items,
+      meta,
+      firm,
+      customer,
+      currency,
+      showBuyRates,
+      docType,
+    });
   };
 
   // Logout key handler
@@ -1011,6 +1032,12 @@ export default function App() {
         onCurrencyChange={handleCurrencyToggle}
         country={country}
         onCountryChange={handleCountryChange}
+        hasUpdateAvailable={installedVersion !== CURRENT_APP_VERSION}
+        installedVersion={installedVersion}
+        onOpenUpdateModal={() => setIsUpdateModalOpen(true)}
+        onOpenBugReport={() => setIsBugReportOpen(true)}
+        onExportExcel={handleExportInvoiceExcel}
+        onOpenSalesTrends={() => setIsSalesTrendsOpen(true)}
       />
 
       {/* Main App Layout */}
@@ -1135,6 +1162,7 @@ export default function App() {
         onLoadInvoiceRecord={handleLoadInvoiceRecord}
         onDeleteHistoryRecord={handleDeleteHistoryRecord}
         onImportInvoicesHistory={handleImportInvoicesHistory}
+        onOpenSalesTrends={() => setIsSalesTrendsOpen(true)}
       />
 
       {/* Business Feature 3: Monthly GST Return Export (GSTR-1 Format) */}
@@ -1250,6 +1278,51 @@ export default function App() {
         onClose={() => setIsAuthModalOpen(false)}
         currentUser={currentUser}
         onUserChange={(usr) => setCurrentUser(usr)}
+      />
+
+      {/* Automated WhatsApp Message Template Generator */}
+      <WhatsAppTemplateModal
+        isOpen={isWhatsAppModalOpen}
+        onClose={() => setIsWhatsAppModalOpen(false)}
+        customer={customer}
+        firm={firm}
+        bank={bank}
+        meta={meta}
+        items={items}
+        currency={currency}
+        trade={trade}
+        docType={docType}
+        wcc={wcc}
+        onRecordHistory={recordInvoiceHistory}
+      />
+
+      {/* In-App App Update & Version Changelog Modal */}
+      <AppUpdateModal
+        isOpen={isUpdateModalOpen}
+        onClose={() => setIsUpdateModalOpen(false)}
+        installedVersion={installedVersion}
+        onApplyUpdate={handleApplyUpdate}
+      />
+
+      {/* Client Bug Reporting & Support Modal (Hidden Owner Email) */}
+      <BugReportModal
+        isOpen={isBugReportOpen}
+        onClose={() => setIsBugReportOpen(false)}
+        firm={firm}
+      />
+
+      {/* Monthly Sales Trends Recharts Visualizer Modal */}
+      <SalesTrendsModal
+        isOpen={isSalesTrendsOpen}
+        onClose={() => setIsSalesTrendsOpen(false)}
+        invoicesHistory={invoicesHistory}
+        currency={currency}
+        onRefreshHistory={() => {
+          try {
+            const saved = localStorage.getItem('nb_invoices_history');
+            if (saved) setInvoicesHistory(JSON.parse(saved));
+          } catch {}
+        }}
       />
 
       {/* PWA Offline Connectivity Indicator */}

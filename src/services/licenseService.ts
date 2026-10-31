@@ -85,7 +85,7 @@ export const licenseService = {
     }
   },
 
-  // Whitelisted authorized cryptographic seed licenses only
+  // Whitelisted authorized cryptographic seed licenses + permanent local vault
   getFallbackLicenses(): LicenseInfo[] {
     const builtIn: LicenseInfo[] = [
       {
@@ -117,16 +117,47 @@ export const licenseService = {
       },
     ];
 
+    const map = new Map<string, LicenseInfo>();
+    builtIn.forEach((l) => map.set(l.key.toUpperCase(), l));
+
+    // 1. Load from nb_custom_licenses
     try {
       const stored = localStorage.getItem('nb_custom_licenses');
       if (stored) {
         const parsed = JSON.parse(stored);
         if (Array.isArray(parsed)) {
-          return [...builtIn, ...parsed];
+          parsed.forEach((l) => {
+            if (l && l.key) map.set(l.key.toUpperCase(), l);
+          });
         }
       }
     } catch {}
-    return builtIn;
+
+    // 2. Load from indestructible permanent vault
+    try {
+      const vault = localStorage.getItem('dexon_permanent_license_vault');
+      if (vault) {
+        const parsed = JSON.parse(vault);
+        if (Array.isArray(parsed)) {
+          parsed.forEach((l) => {
+            if (l && l.key) map.set(l.key.toUpperCase(), l);
+          });
+        }
+      }
+    } catch {}
+
+    // 3. Auto-recover active license if not in list
+    try {
+      const activeRaw = localStorage.getItem(LOCAL_KEY_DATA);
+      if (activeRaw) {
+        const activeLic = JSON.parse(activeRaw);
+        if (activeLic && activeLic.key && !map.has(activeLic.key.toUpperCase())) {
+          map.set(activeLic.key.toUpperCase(), activeLic);
+        }
+      }
+    } catch {}
+
+    return Array.from(map.values());
   },
 
   /**
@@ -368,23 +399,197 @@ export const licenseService = {
     return false;
   },
 
+  saveToPermanentVault(license: LicenseInfo) {
+    if (!license || !license.key) return;
+    try {
+      // 1. nb_custom_licenses
+      const stored = localStorage.getItem('nb_custom_licenses');
+      const list: LicenseInfo[] = stored ? JSON.parse(stored) : [];
+      const idx = list.findIndex((l) => l.key.toUpperCase() === license.key.toUpperCase());
+      if (idx >= 0) list[idx] = license;
+      else list.unshift(license);
+      localStorage.setItem('nb_custom_licenses', JSON.stringify(list));
+
+      // 2. dexon_permanent_license_vault
+      const vaultRaw = localStorage.getItem('dexon_permanent_license_vault');
+      const vault: LicenseInfo[] = vaultRaw ? JSON.parse(vaultRaw) : [];
+      const vIdx = vault.findIndex((l) => l.key.toUpperCase() === license.key.toUpperCase());
+      if (vIdx >= 0) vault[vIdx] = license;
+      else vault.unshift(license);
+      localStorage.setItem('dexon_permanent_license_vault', JSON.stringify(vault));
+    } catch {}
+  },
+
+  restoreKeyToVault(
+    rawKey: string,
+    clientName?: string,
+    planOverride?: 'Trial' | 'Pro' | 'Business',
+    expiryOverride?: string
+  ): { success: boolean; license?: LicenseInfo; error?: string } {
+    const clean = rawKey.trim().toUpperCase();
+    if (!clean || clean.length < 5) {
+      return { success: false, error: 'Please enter a valid license key string.' };
+    }
+
+    let decoded = this.decodeAlgorithmicKey(clean);
+
+    // If algorithmic decode failed (legacy key, custom salt, or custom key like NXB-BIZ-9828-2704-8AB7):
+    if (!decoded) {
+      const parts = clean.split('-');
+      let plan: 'Trial' | 'Pro' | 'Business' = planOverride || 'Business';
+      if (!planOverride) {
+        if (clean.includes('BIZ') || clean.includes('BUSINESS')) plan = 'Business';
+        else if (clean.includes('PRO')) plan = 'Pro';
+        else if (clean.includes('TRL') || clean.includes('TRIAL')) plan = 'Trial';
+      }
+
+      let expiryStr = expiryOverride || '2028-12-31';
+      if (!expiryOverride) {
+        for (const p of parts) {
+          if (/^\d{4}$/.test(p)) {
+            const yy = parseInt(p.slice(0, 2), 10);
+            const mm = parseInt(p.slice(2, 4), 10);
+            if (yy >= 24 && yy <= 50 && mm >= 1 && mm <= 12) {
+              const fullYear = 2000 + yy;
+              const lastDay = new Date(fullYear, mm, 0).getDate();
+              expiryStr = `${fullYear}-${String(mm).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+              break;
+            }
+          }
+        }
+      }
+
+      decoded = {
+        key: clean,
+        clientName: clientName?.trim() || 'Restored Business Client',
+        clientPhone: '94298-42000',
+        plan,
+        expiry: expiryStr,
+        invoiceLimit: plan === 'Trial' ? 5 : 99999,
+        isActive: true,
+        notes: `Restored Admin Key (${plan})`,
+      };
+    }
+
+    const restored: LicenseInfo = {
+      ...decoded,
+      clientName: clientName?.trim() || decoded.clientName || 'Restored Business Client',
+      plan: planOverride || decoded.plan,
+      expiry: expiryOverride || decoded.expiry,
+      isActive: true,
+    };
+
+    this.saveToPermanentVault(restored);
+
+    // Two-way sync with server in background
+    try {
+      fetch('/api/admin/licenses/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-admin-pin': '9429' },
+        body: JSON.stringify({ licenses: [restored] }),
+      }).catch(() => {});
+    } catch {}
+
+    return { success: true, license: restored };
+  },
+
+  /**
+   * Upgrades or edits an existing license plan & expiry WITHOUT CHANGING THE KEY.
+   * Keeps customer's data and invoices 100% intact!
+   */
+  async updateLicensePlanAndExpiry(
+    pin: string,
+    key: string,
+    newPlan: 'Trial' | 'Pro' | 'Business',
+    newExpiry: string,
+    newClientName?: string
+  ): Promise<{ success: boolean; license?: LicenseInfo; message?: string }> {
+    const cleanKey = key.trim().toUpperCase();
+    const all = this.getFallbackLicenses();
+    const existing = all.find((l) => l.key.toUpperCase() === cleanKey);
+
+    const updated: LicenseInfo = {
+      key: cleanKey,
+      clientName: newClientName?.trim() || existing?.clientName || 'Authorized Client',
+      clientPhone: existing?.clientPhone || '94298-42000',
+      plan: newPlan,
+      expiry: newExpiry,
+      invoiceLimit: newPlan === 'Trial' ? 5 : 99999,
+      isActive: true,
+      notes: `Upgraded to ${newPlan} on ${new Date().toISOString().split('T')[0]}`,
+    };
+
+    // Save to local permanent vault
+    this.saveToPermanentVault(updated);
+
+    // If this is currently the active license on this browser, update active data too!
+    try {
+      const activeRaw = localStorage.getItem(LOCAL_KEY_DATA);
+      if (activeRaw) {
+        const activeData = JSON.parse(activeRaw);
+        if (activeData.key?.toUpperCase() === cleanKey) {
+          localStorage.setItem(LOCAL_KEY_DATA, JSON.stringify(updated));
+        }
+      }
+    } catch {}
+
+    // Update on server
+    try {
+      await fetch('/api/admin/licenses/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-admin-pin': pin },
+        body: JSON.stringify({ licenses: [updated] }),
+      });
+    } catch {}
+
+    return { success: true, license: updated, message: `Successfully upgraded key to ${newPlan} with validity until ${newExpiry}!` };
+  },
+
   async fetchAllLicenses(pin: string) {
+    const localList = this.getFallbackLicenses();
+    const map = new Map<string, LicenseInfo>();
+    localList.forEach((l) => map.set(l.key.toUpperCase(), l));
+
     try {
       const res = await fetch('/api/admin/licenses', {
         headers: { 'x-admin-pin': pin },
       });
       if (res.ok) {
-        return await res.json();
+        const data = await res.json();
+        if (Array.isArray(data.licenses)) {
+          data.licenses.forEach((sl: LicenseInfo) => {
+            if (sl && sl.key) map.set(sl.key.toUpperCase(), sl);
+          });
+        }
       }
     } catch {}
 
-    const list = this.getFallbackLicenses();
+    const merged = Array.from(map.values());
+
+    // Save merged to permanent vaults so local is always updated
+    try {
+      localStorage.setItem('nb_custom_licenses', JSON.stringify(merged));
+      localStorage.setItem('dexon_permanent_license_vault', JSON.stringify(merged));
+    } catch {}
+
+    // Background two-way sync to server
+    try {
+      fetch('/api/admin/licenses/sync', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-admin-pin': pin,
+        },
+        body: JSON.stringify({ licenses: merged }),
+      }).catch(() => {});
+    } catch {}
+
     return {
-      licenses: list,
+      licenses: merged,
       stats: {
-        total: list.length,
-        active: list.filter((l) => l.isActive).length,
-        revoked: list.filter((l) => !l.isActive).length,
+        total: merged.length,
+        active: merged.filter((l) => l.isActive).length,
+        revoked: merged.filter((l) => !l.isActive).length,
         totalInvoices: this.getMonthlyInvoiceCount(),
       },
     };
@@ -399,20 +604,6 @@ export const licenseService = {
     customKey?: string;
     notes?: string;
   }) {
-    try {
-      const res = await fetch('/api/admin/licenses', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-admin-pin': pin,
-        },
-        body: JSON.stringify(data),
-      });
-      if (res.ok) {
-        return await res.json();
-      }
-    } catch {}
-
     // Generate genuine signed cryptographic key
     const expiryYymm = data.expiry.replace(/[^0-9]/g, '').slice(2, 6) || '3012';
     const key = data.customKey && data.customKey.trim().length > 0
@@ -421,8 +612,8 @@ export const licenseService = {
 
     const newRecord: LicenseInfo = {
       key,
-      clientName: data.clientName,
-      clientPhone: data.clientPhone,
+      clientName: data.clientName.trim(),
+      clientPhone: data.clientPhone.trim(),
       plan: data.plan,
       expiry: data.expiry,
       invoiceLimit: data.invoiceLimit,
@@ -430,11 +621,25 @@ export const licenseService = {
       notes: data.notes,
     };
 
+    // Save IMMEDIATELY to permanent local vaults
+    this.saveToPermanentVault(newRecord);
+
     try {
-      const stored = localStorage.getItem('nb_custom_licenses');
-      const list = stored ? JSON.parse(stored) : [];
-      list.push(newRecord);
-      localStorage.setItem('nb_custom_licenses', JSON.stringify(list));
+      const res = await fetch('/api/admin/licenses', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-admin-pin': pin,
+        },
+        body: JSON.stringify({ ...data, customKey: key }),
+      });
+      if (res.ok) {
+        const serverData = await res.json();
+        if (serverData.license) {
+          this.saveToPermanentVault(serverData.license);
+          return serverData;
+        }
+      }
     } catch {}
 
     return { success: true, license: newRecord, key };

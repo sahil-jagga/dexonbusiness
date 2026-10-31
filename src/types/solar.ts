@@ -80,7 +80,7 @@ export type DocType = 'invoice' | 'quotation' | 'wcc' | 'estimate' | 'receipt';
 
 export type IndustryType = 'solar' | 'electrical' | 'automobile' | 'finance' | 'general' | 'bike_spares' | 'hardware' | 'electronics' | 'general_trading';
 
-export type TradeKey = 'solar' | 'bike_spares' | 'electronics' | 'hardware' | 'general_trading' | 'automobile';
+export type TradeKey = 'solar' | 'bike_spares' | 'electronics' | 'hardware' | 'general_trading' | 'automobile' | 'finance';
 
 export interface MarginReceiptDetails {
   receiptNo: string;

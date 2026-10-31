@@ -24,6 +24,7 @@ async function run() {
   console.log('🚀 Step 2: Building 100% standalone single-file offline HTML...');
   const tempDir = path.resolve(rootDir, 'dist_single_temp');
   await build({
+    configFile: false,
     base: './',
     plugins: [react(), tailwindcss(), viteSingleFile()],
     build: {
@@ -33,16 +34,20 @@ async function run() {
   });
 
   const singleHtmlSource = path.join(tempDir, 'index.html');
+  const targetDexonDist = path.join(rootDir, 'dist', 'Dexon_Business_Pro_Offline.html');
+  const targetDexonPublic = path.join(rootDir, 'public', 'Dexon_Business_Pro_Offline.html');
   const targetOfflineDist = path.join(rootDir, 'dist', 'Nexbill_Solar_Pro_Offline.html');
   const targetOfflinePublic = path.join(rootDir, 'public', 'Nexbill_Solar_Pro_Offline.html');
   const targetPortablePublic = path.join(rootDir, 'public', 'Nexbill_Solar_Pro_Portable.html');
 
   if (fs.existsSync(singleHtmlSource)) {
+    fs.copyFileSync(singleHtmlSource, targetDexonDist);
+    fs.copyFileSync(singleHtmlSource, targetDexonPublic);
     fs.copyFileSync(singleHtmlSource, targetOfflineDist);
     fs.copyFileSync(singleHtmlSource, targetOfflinePublic);
     fs.copyFileSync(singleHtmlSource, targetPortablePublic);
     fs.rmSync(tempDir, { recursive: true, force: true });
-    console.log('✅ Standalone single-file HTML generated successfully (~1.6 MB, zero external dependencies).');
+    console.log('✅ Standalone single-file HTML generated successfully (zero external dependencies).');
   }
 
   // Ensure .htaccess in dist

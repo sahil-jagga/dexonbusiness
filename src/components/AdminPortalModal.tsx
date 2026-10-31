@@ -27,7 +27,11 @@ import {
   HelpCircle,
   Lock,
   Users,
-  ShieldCheck
+  ShieldCheck,
+  Mail,
+  MessageSquare,
+  Send,
+  Inbox
 } from 'lucide-react';
 import { licenseService, sha256Hex } from '../services/licenseService';
 
@@ -52,8 +56,56 @@ export const AdminPortalModal: React.FC<AdminPortalModalProps> = ({
   const [loading, setLoading] = useState(false);
 
   // Active Tab inside Admin Modal
-  const [adminTab, setAdminTab] = useState<'list' | 'plans' | 'create' | 'simulator' | 'hosting' | 'pins'>('hosting');
+  const [adminTab, setAdminTab] = useState<'list' | 'plans' | 'create' | 'simulator' | 'hosting' | 'pins' | 'feedback'>('hosting');
   const [copiedSnippet, setCopiedSnippet] = useState(false);
+
+  // Owner Notification Email & Bug Reports
+  const [ownerEmail, setOwnerEmail] = useState<string>(() => {
+    try {
+      return localStorage.getItem('dexon_owner_notification_email') || 'sahiljagga2k@gmail.com';
+    } catch {
+      return 'sahiljagga2k@gmail.com';
+    }
+  });
+  const [emailSaveMsg, setEmailSaveMsg] = useState('');
+  const [clientBugReports, setClientBugReports] = useState<any[]>(() => {
+    try {
+      return JSON.parse(localStorage.getItem('dexon_bug_reports_local') || '[]');
+    } catch {
+      return [];
+    }
+  });
+  const [reportFilter, setReportFilter] = useState<'ALL' | 'BUG' | 'CALCULATION' | 'FEATURE' | 'OTHER'>('ALL');
+
+  // Business Email & SMTP Configuration
+  const [smtpHost, setSmtpHost] = useState('');
+  const [smtpPort, setSmtpPort] = useState<number>(465);
+  const [smtpSecure, setSmtpSecure] = useState(true);
+  const [smtpUser, setSmtpUser] = useState('');
+  const [smtpPass, setSmtpPass] = useState('');
+  const [businessEmailFrom, setBusinessEmailFrom] = useState('Dexon Business Support <support@dexonbusiness.com>');
+  const [showSmtpSettings, setShowSmtpSettings] = useState(false);
+  const [isTestingSmtp, setIsTestingSmtp] = useState(false);
+  const [smtpTestMsg, setSmtpTestMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  // Ticket Resolution & Fix Email Reply
+  const [replyTicket, setReplyTicket] = useState<any | null>(null);
+  const [replyMessage, setReplyMessage] = useState('');
+  const [replyClientEmail, setReplyClientEmail] = useState('');
+  const [isSendingReply, setIsSendingReply] = useState(false);
+
+  // Key Restore Tool
+  const [showRestoreModal, setShowRestoreModal] = useState(false);
+  const [restoreKeyInput, setRestoreKeyInput] = useState('');
+  const [restoreClientInput, setRestoreClientInput] = useState('');
+  const [restorePlanInput, setRestorePlanInput] = useState<'Trial' | 'Pro' | 'Business'>('Business');
+  const [restoreExpiryInput, setRestoreExpiryInput] = useState('2027-04-30');
+
+  // Edit / Upgrade Existing License State
+  const [editingLicense, setEditingLicense] = useState<any | null>(null);
+  const [editPlan, setEditPlan] = useState<'Trial' | 'Pro' | 'Business'>('Business');
+  const [editExpiry, setEditExpiry] = useState('');
+  const [editClientName, setEditClientName] = useState('');
 
   // Licenses list & stats
   const [licenses, setLicenses] = useState<any[]>([]);
@@ -110,9 +162,250 @@ export const AdminPortalModal: React.FC<AdminPortalModalProps> = ({
     return () => clearInterval(interval);
   }, []);
 
+  const loadBugReports = async () => {
+    try {
+      const res = await fetch('/api/admin/feedback', {
+        headers: { 'x-admin-pin': pin || '9429' },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.reports) {
+          setClientBugReports(data.reports);
+          localStorage.setItem('dexon_bug_reports_local', JSON.stringify(data.reports));
+          return;
+        }
+      }
+    } catch {}
+    try {
+      const stored = localStorage.getItem('dexon_bug_reports_local');
+      if (stored) setClientBugReports(JSON.parse(stored));
+    } catch {}
+  };
+
+  const loadOwnerNotificationEmail = async () => {
+    try {
+      const res = await fetch('/api/admin/notification-email', {
+        headers: { 'x-admin-pin': pin || '9429' },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.email) {
+          setOwnerEmail(data.email);
+          localStorage.setItem('dexon_owner_notification_email', data.email);
+        }
+        if (data.smtpHost) setSmtpHost(data.smtpHost);
+        if (data.smtpPort) setSmtpPort(data.smtpPort);
+        if (data.smtpSecure !== undefined) setSmtpSecure(data.smtpSecure);
+        if (data.smtpUser) setSmtpUser(data.smtpUser);
+        if (data.businessEmailFrom) setBusinessEmailFrom(data.businessEmailFrom);
+      }
+    } catch {}
+  };
+
+  const handleSaveOwnerEmail = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!ownerEmail || !ownerEmail.includes('@')) {
+      alert('Please enter a valid email address');
+      return;
+    }
+    try {
+      const res = await fetch('/api/admin/notification-email', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-admin-pin': pin || '9429',
+        },
+        body: JSON.stringify({
+          email: ownerEmail.trim(),
+          smtpHost: smtpHost.trim(),
+          smtpPort: Number(smtpPort) || 465,
+          smtpSecure,
+          smtpUser: smtpUser.trim(),
+          smtpPass: smtpPass.trim() || undefined,
+          businessEmailFrom: businessEmailFrom.trim(),
+        }),
+      });
+      if (res.ok) {
+        localStorage.setItem('dexon_owner_notification_email', ownerEmail.trim());
+        setEmailSaveMsg('✅ Email & SMTP Settings saved successfully! Real emails are now active.');
+        setTimeout(() => setEmailSaveMsg(''), 4000);
+      } else {
+        const err = await res.json();
+        alert('Error saving email: ' + (err.error || 'Failed'));
+      }
+    } catch {
+      localStorage.setItem('dexon_owner_notification_email', ownerEmail.trim());
+      setEmailSaveMsg('✅ Saved locally! Notification email will be used.');
+      setTimeout(() => setEmailSaveMsg(''), 4000);
+    }
+  };
+
+  const handleTestSmtpEmail = async () => {
+    setIsTestingSmtp(true);
+    setSmtpTestMsg(null);
+    try {
+      const res = await fetch('/api/admin/test-email', {
+        method: 'POST',
+        headers: { 'x-admin-pin': pin || '9429' },
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setSmtpTestMsg({ type: 'success', text: data.message || `✅ Test email delivered to ${ownerEmail}!` });
+      } else {
+        setSmtpTestMsg({ type: 'error', text: `❌ ${data.error || 'Failed to send test email'}` });
+      }
+    } catch (e: any) {
+      setSmtpTestMsg({ type: 'error', text: `❌ Network / Server Error: ${e.message}` });
+    } finally {
+      setIsTestingSmtp(false);
+    }
+  };
+
+  const handleResolveAndReply = async (ticket: any, mode: 'email' | 'whatsapp') => {
+    if (mode === 'whatsapp') {
+      const text = encodeURIComponent(
+        `*⚡ Dexon Support Update — Ticket #${ticket.id}*\n\n` +
+        `Pranam ${ticket.clientName || 'Customer'} ji,\n\n` +
+        `Aapne jo issue report kiya tha (${ticket.category}), wo Dexon ke naye update me fix kar diya gaya hai:\n\n` +
+        `✅ *Resolution:* ${replyMessage || 'Issue has been successfully resolved in Dexon v2.5.0! Kripya app update karein.'}\n\n` +
+        `Regards,\nDexon Support Team`
+      );
+      const phone = (ticket.clientPhone || '').replace(/[^0-9]/g, '');
+      window.open(phone ? `https://wa.me/${phone}?text=${text}` : `https://wa.me/?text=${text}`, '_blank');
+    }
+
+    if (mode === 'email') {
+      setIsSendingReply(true);
+      try {
+        const res = await fetch('/api/admin/resolve-ticket', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-admin-pin': pin || '9429',
+          },
+          body: JSON.stringify({
+            ticketId: ticket.id,
+            resolutionMessage: replyMessage,
+            clientEmail: replyClientEmail || ticket.clientEmail,
+            sendEmail: true,
+          }),
+        });
+        const data = await res.json();
+        if (data.emailSent) {
+          alert(`✅ Resolution email successfully dispatched to ${replyClientEmail || ticket.clientEmail}!`);
+        } else if (data.emailError) {
+          alert(`⚠️ Ticket marked resolved, but email delivery reported: ${data.emailError}\n(Tip: Check SMTP credentials in settings above).`);
+        } else {
+          alert('✅ Ticket marked resolved in system.');
+        }
+      } catch {
+        alert('Ticket updated locally.');
+      } finally {
+        setIsSendingReply(false);
+      }
+    }
+
+    // Update local state
+    const updated = clientBugReports.map((r) =>
+      r.id === ticket.id ? { ...r, status: 'RESOLVED', resolutionNotes: replyMessage } : r
+    );
+    setClientBugReports(updated);
+    localStorage.setItem('dexon_bug_reports_local', JSON.stringify(updated));
+    setReplyTicket(null);
+    setReplyMessage('');
+    setReplyClientEmail('');
+  };
+
+  const handleRestoreKeyInputChange = (val: string) => {
+    setRestoreKeyInput(val);
+    const upper = val.trim().toUpperCase();
+    if (upper.includes('BIZ') || upper.includes('BUSINESS')) {
+      setRestorePlanInput('Business');
+    } else if (upper.includes('PRO')) {
+      setRestorePlanInput('Pro');
+    } else if (upper.includes('TRL') || upper.includes('TRIAL')) {
+      setRestorePlanInput('Trial');
+    }
+
+    const parts = upper.split('-');
+    for (const p of parts) {
+      if (/^\d{4}$/.test(p)) {
+        const yy = parseInt(p.slice(0, 2), 10);
+        const mm = parseInt(p.slice(2, 4), 10);
+        if (yy >= 24 && yy <= 50 && mm >= 1 && mm <= 12) {
+          const fullYear = 2000 + yy;
+          const lastDay = new Date(fullYear, mm, 0).getDate();
+          setRestoreExpiryInput(`${fullYear}-${String(mm).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`);
+          break;
+        }
+      }
+    }
+  };
+
+  const handleRestoreKey = () => {
+    if (!restoreKeyInput.trim()) {
+      alert('Please enter or paste the license key to restore');
+      return;
+    }
+    const res = licenseService.restoreKeyToVault(
+      restoreKeyInput.trim(),
+      restoreClientInput.trim(),
+      restorePlanInput,
+      restoreExpiryInput
+    );
+    if (res.success && res.license) {
+      alert(`🎉 License Key Restored Successfully!\n\nKey: ${res.license.key}\nClient: ${res.license.clientName}\nPlan: ${res.license.plan}\nExpiry: ${res.license.expiry}\n\nYe key aapke Admin Vault me permanently save ho gayi hai.`);
+      setRestoreKeyInput('');
+      setRestoreClientInput('');
+      setShowRestoreModal(false);
+      loadLicenses();
+      if (onLicenseChanged) onLicenseChanged();
+    } else {
+      alert(`❌ Restore Failed: ${res.error || 'Invalid Key'}`);
+    }
+  };
+
+  const handleSaveEditLicense = async () => {
+    if (!editingLicense) return;
+    try {
+      const res = await licenseService.updateLicensePlanAndExpiry(
+        pin || '9429',
+        editingLicense.key,
+        editPlan,
+        editExpiry || editingLicense.expiry,
+        editClientName || editingLicense.clientName
+      );
+      if (res.success) {
+        alert(`✅ License Successfully Updated / Upgraded!\n\nKey: ${editingLicense.key}\nClient: ${editClientName || editingLicense.clientName}\nPlan: ${editPlan}\nExpiry: ${editExpiry || editingLicense.expiry}\n\nCustomer ka data, bills aur key bilkul same rahegi — bas plan upgrade ho gaya hai!`);
+        setEditingLicense(null);
+        await loadLicenses();
+        if (onLicenseChanged) onLicenseChanged();
+      } else {
+        alert('Failed to update license: ' + res.message);
+      }
+    } catch (err: any) {
+      alert('Error updating license: ' + err.message);
+    }
+  };
+
+  const handleDeleteReport = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this bug report?')) return;
+    try {
+      await fetch(`/api/admin/feedback/${id}`, {
+        method: 'DELETE',
+        headers: { 'x-admin-pin': pin || '9429' },
+      });
+    } catch {}
+    const updated = clientBugReports.filter((r) => r.id !== id);
+    setClientBugReports(updated);
+    localStorage.setItem('dexon_bug_reports_local', JSON.stringify(updated));
+  };
+
   useEffect(() => {
     if (isOpen && isAuthenticated) {
       loadLicenses();
+      loadBugReports();
+      loadOwnerNotificationEmail();
     }
   }, [isOpen, isAuthenticated]);
 
@@ -137,6 +430,8 @@ export const AdminPortalModal: React.FC<AdminPortalModalProps> = ({
         setLockoutRemainingSecs(0);
         setIsAuthenticated(true);
         await loadLicenses();
+        loadBugReports();
+        loadOwnerNotificationEmail();
         return;
       }
 
@@ -147,6 +442,8 @@ export const AdminPortalModal: React.FC<AdminPortalModalProps> = ({
         localStorage.removeItem('dexon_admin_lockout_until');
         setIsAuthenticated(true);
         await loadLicenses();
+        loadBugReports();
+        loadOwnerNotificationEmail();
       } else {
         const currentFailed = Number(localStorage.getItem('dexon_admin_failed_attempts') || 0) + 1;
         localStorage.setItem('dexon_admin_failed_attempts', String(currentFailed));
@@ -180,6 +477,8 @@ export const AdminPortalModal: React.FC<AdminPortalModalProps> = ({
       setPin('');
       alert('✅ Master Emergency Recovery Accepted!\n• Security lockout cleared.\n• Admin PIN restored to default (9429).\n• Welcome back, Owner!');
       loadLicenses();
+      loadBugReports();
+      loadOwnerNotificationEmail();
     } else {
       setErrorMsg('❌ Invalid Emergency Recovery Key! Check your confidential owner records.');
     }
@@ -577,6 +876,21 @@ export const AdminPortalModal: React.FC<AdminPortalModalProps> = ({
                   <Lock className="h-3.5 w-3.5" />
                   🔐 PINs & Staff Access
                 </button>
+
+                <button
+                  onClick={() => {
+                    setAdminTab('feedback');
+                    loadBugReports();
+                  }}
+                  className={`flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 font-bold transition ${
+                    adminTab === 'feedback'
+                      ? 'bg-blue-600 text-white shadow-sm'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  <MessageSquare className="h-3.5 w-3.5 text-blue-300" />
+                  📩 Client Bug Reports ({clientBugReports.length})
+                </button>
               </div>
 
               <div className="flex items-center gap-2">
@@ -903,6 +1217,17 @@ export const AdminPortalModal: React.FC<AdminPortalModalProps> = ({
                         Trial 🆓
                       </button>
                     </div>
+
+                    {/* Restore Lost / Previous Key Button */}
+                    <button
+                      type="button"
+                      onClick={() => setShowRestoreModal(true)}
+                      className="flex items-center gap-1.5 rounded-lg border border-amber-500/50 bg-amber-950/40 px-3 py-1.5 text-xs font-bold text-amber-300 hover:bg-amber-900/60 transition shadow-sm"
+                      title="Customer ki purani key vault me wapas add ya restore karein"
+                    >
+                      <RotateCcw className="h-3.5 w-3.5 text-amber-400" />
+                      <span>🔑 Restore Past Key</span>
+                    </button>
                   </div>
                 </div>
 
@@ -1008,6 +1333,20 @@ export const AdminPortalModal: React.FC<AdminPortalModalProps> = ({
                                   title="Send key on WhatsApp"
                                 >
                                   <Share2 className="h-3 w-3" /> WA
+                                </button>
+
+                                {/* Upgrade Plan / Edit Expiry */}
+                                <button
+                                  onClick={() => {
+                                    setEditingLicense(item);
+                                    setEditPlan(item.plan);
+                                    setEditExpiry(item.expiry);
+                                    setEditClientName(item.clientName);
+                                  }}
+                                  className="flex items-center gap-1 rounded bg-purple-950/40 border border-purple-700/50 px-2 py-1 text-[11px] font-bold text-purple-300 hover:bg-purple-900/60"
+                                  title="Upgrade Plan or extend Expiry (Customer key and invoices remain unchanged!)"
+                                >
+                                  <Sparkles className="h-3 w-3 text-purple-400" /> Upgrade
                                 </button>
 
                                 {/* Reset Device Binding */}
@@ -1780,6 +2119,651 @@ export const AdminPortalModal: React.FC<AdminPortalModalProps> = ({
                 </div>
               </div>
             )}
+
+            {/* TAB: Client Bug Reports & Secret Support System */}
+            {adminTab === 'feedback' && (
+              <div className="flex-1 overflow-y-auto pr-2 space-y-6 max-h-full">
+                {/* Email & SMTP Configuration Card */}
+                <div className="rounded-2xl border border-blue-500/30 bg-slate-900/80 p-5 shadow-lg space-y-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-3">
+                    <div className="flex items-center gap-2.5">
+                      <div className="rounded-xl bg-blue-500/20 p-2 text-blue-400">
+                        <Mail className="h-5 w-5" />
+                      </div>
+                      <div>
+                        <h4 className="font-black text-white text-base">Owner Notification & Business Email Setup</h4>
+                        <p className="text-xs text-slate-400">
+                          Clients ko ye email kabhi nahi dikhega. Sabhi tickets aur client fix emails isi system se dispatch honge.
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setShowSmtpSettings(!showSmtpSettings)}
+                        className="rounded-xl border border-blue-500/40 bg-blue-950/60 px-3 py-1 text-xs font-bold text-blue-300 hover:bg-blue-900 transition flex items-center gap-1.5"
+                      >
+                        <Server className="h-3.5 w-3.5" />
+                        {showSmtpSettings ? 'Hide SMTP Settings ▲' : '⚙️ Setup Domain / Gmail SMTP ▼'}
+                      </button>
+                      <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/20 border border-emerald-500/30 px-3 py-1 text-xs font-bold text-emerald-300">
+                        <ShieldCheck className="h-3.5 w-3.5" />
+                        100% Client-Hidden
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Primary Notification Email Input */}
+                  <form onSubmit={handleSaveOwnerEmail} className="space-y-4">
+                    <div className="flex flex-col sm:flex-row gap-3">
+                      <div className="relative flex-1">
+                        <label className="block text-[11px] font-bold text-slate-400 mb-1">
+                          Aapka Alert Notification Email (Jahan sabhi client complaints deliver honge):
+                        </label>
+                        <input
+                          type="email"
+                          value={ownerEmail}
+                          onChange={(e) => setOwnerEmail(e.target.value)}
+                          placeholder="e.g. sahiljagga2k@gmail.com"
+                          className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 font-mono"
+                          required
+                        />
+                      </div>
+                      <div className="flex items-end gap-2">
+                        <button
+                          type="submit"
+                          className="rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-bold text-white hover:bg-blue-500 transition shadow-sm flex items-center justify-center gap-2"
+                        >
+                          <Check className="h-4 w-4" />
+                          Save Settings
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleTestSmtpEmail}
+                          disabled={isTestingSmtp}
+                          className="rounded-xl border border-emerald-500/50 bg-emerald-950/50 px-4 py-2.5 text-sm font-bold text-emerald-300 hover:bg-emerald-900 transition flex items-center justify-center gap-2 disabled:opacity-50"
+                          title="Verify email delivery to your inbox right now"
+                        >
+                          {isTestingSmtp ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                          {isTestingSmtp ? 'Sending...' : '🧪 Test Email'}
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Expandable Real SMTP / Domain Email Configuration */}
+                    {showSmtpSettings && (
+                      <div className="rounded-xl border border-slate-800 bg-slate-950/80 p-4 space-y-4 animate-fadeIn">
+                        <div className="flex items-center justify-between border-b border-slate-800/80 pb-2">
+                          <h5 className="text-xs font-black text-amber-300 uppercase tracking-wider flex items-center gap-2">
+                            <Server className="h-4 w-4 text-amber-400" />
+                            Domain / Gmail SMTP Mail Server Setup (Mail Aane aur Client ko Reply ke liye)
+                          </h5>
+                          <span className="text-[11px] text-slate-400">Hostinger, Google Workspace, Gmail or cPanel</span>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                          <div>
+                            <label className="text-[11px] font-bold text-slate-400 block mb-1">
+                              SMTP Host
+                            </label>
+                            <input
+                              type="text"
+                              value={smtpHost}
+                              onChange={(e) => setSmtpHost(e.target.value)}
+                              placeholder="e.g. smtp.gmail.com or smtp.hostinger.com"
+                              className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs text-white placeholder-slate-500 font-mono"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="text-[11px] font-bold text-slate-400 block mb-1">
+                              SMTP Port
+                            </label>
+                            <div className="flex gap-2">
+                              <input
+                                type="number"
+                                value={smtpPort}
+                                onChange={(e) => setSmtpPort(Number(e.target.value))}
+                                placeholder="465"
+                                className="w-24 rounded-lg border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs text-white placeholder-slate-500 font-mono"
+                              />
+                              <label className="flex items-center gap-1.5 text-xs text-slate-300 cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  checked={smtpSecure}
+                                  onChange={(e) => setSmtpSecure(e.target.checked)}
+                                  className="rounded border-slate-700 bg-slate-900 text-blue-600"
+                                />
+                                <span>SSL / TLS (Port 465)</span>
+                              </label>
+                            </div>
+                          </div>
+
+                          <div>
+                            <label className="text-[11px] font-bold text-slate-400 block mb-1">
+                              From Sender Display
+                            </label>
+                            <input
+                              type="text"
+                              value={businessEmailFrom}
+                              onChange={(e) => setBusinessEmailFrom(e.target.value)}
+                              placeholder="Dexon Support <support@yourdomain.com>"
+                              className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs text-white placeholder-slate-500 font-mono"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <div>
+                            <label className="text-[11px] font-bold text-slate-400 block mb-1">
+                              SMTP Username / Email
+                            </label>
+                            <input
+                              type="text"
+                              value={smtpUser}
+                              onChange={(e) => setSmtpUser(e.target.value)}
+                              placeholder="support@yourdomain.com ya sahiljagga2k@gmail.com"
+                              className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs text-white placeholder-slate-500 font-mono"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="text-[11px] font-bold text-slate-400 block mb-1">
+                              SMTP Password / Google App Password (16 Letters)
+                            </label>
+                            <input
+                              type="password"
+                              value={smtpPass}
+                              onChange={(e) => setSmtpPass(e.target.value)}
+                              placeholder="Aapka email password ya 16-letter App Password"
+                              className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs text-white placeholder-slate-500 font-mono"
+                            />
+                          </div>
+                        </div>
+
+                        {/* Guide note */}
+                        <div className="rounded-lg bg-blue-950/40 border border-blue-500/20 p-2.5 text-[11px] text-blue-200 leading-relaxed">
+                          💡 <b>Gmail se connect karne ka aasan tarika:</b> Apne Google Account me <i>Security → 2-Step Verification → App Passwords</i> me jakar "Dexon" naam se 16-character password generate karein aur upar paste karke <b>Save Settings</b> karein. Domain email ke liye aap apne Hostinger / cPanel ka SMTP host & email password use kar sakte hain.
+                        </div>
+                      </div>
+                    )}
+                  </form>
+
+                  {emailSaveMsg && (
+                    <p className="mt-2 text-xs font-bold text-emerald-400 animate-fadeIn">{emailSaveMsg}</p>
+                  )}
+                  {smtpTestMsg && (
+                    <div
+                      className={`mt-2 rounded-xl p-3 text-xs font-bold animate-fadeIn ${
+                        smtpTestMsg.type === 'success'
+                          ? 'border border-emerald-500/40 bg-emerald-950/60 text-emerald-300'
+                          : 'border border-rose-500/40 bg-rose-950/60 text-rose-300'
+                      }`}
+                    >
+                      {smtpTestMsg.text}
+                    </div>
+                  )}
+                </div>
+
+                {/* Bug Reports Header & Filter */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    <Inbox className="h-5 w-5 text-blue-400" />
+                    <h4 className="font-black text-white text-base">Received Bug Reports ({clientBugReports.length})</h4>
+                  </div>
+                  <div className="flex items-center gap-1.5 overflow-x-auto text-xs">
+                    {(['ALL', 'BUG', 'CALCULATION', 'FEATURE', 'OTHER'] as const).map((cat) => (
+                      <button
+                        key={cat}
+                        onClick={() => setReportFilter(cat)}
+                        className={`rounded-lg px-2.5 py-1 font-bold transition ${
+                          reportFilter === cat
+                            ? 'bg-blue-600 text-white'
+                            : 'bg-slate-800 text-slate-400 hover:text-white'
+                        }`}
+                      >
+                        {cat === 'ALL' ? 'All Reports' : cat}
+                      </button>
+                    ))}
+                    <button
+                      onClick={loadBugReports}
+                      className="rounded-lg bg-slate-800 px-2.5 py-1 font-bold text-slate-300 hover:text-white flex items-center gap-1 ml-1"
+                      title="Refresh reports"
+                    >
+                      <RefreshCw className="h-3 w-3" />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Reports List */}
+                <div className="space-y-3 pb-8">
+                  {clientBugReports
+                    .filter((r) => reportFilter === 'ALL' || r.category === reportFilter)
+                    .map((report) => {
+                      const categoryColors: Record<string, string> = {
+                        BUG: 'bg-rose-950/60 text-rose-300 border-rose-500/40',
+                        CALCULATION: 'bg-amber-950/60 text-amber-300 border-amber-500/40',
+                        FEATURE: 'bg-purple-950/60 text-purple-300 border-purple-500/40',
+                        OTHER: 'bg-blue-950/60 text-blue-300 border-blue-500/40',
+                      };
+
+                      const isResolved = report.status === 'RESOLVED';
+
+                      return (
+                        <div
+                          key={report.id}
+                          className={`rounded-2xl border p-4 transition space-y-3 ${
+                            isResolved
+                              ? 'border-emerald-500/40 bg-emerald-950/20'
+                              : 'border-slate-800 bg-slate-900/60 hover:border-slate-700'
+                          }`}
+                        >
+                          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800/80 pb-2.5">
+                            <div className="flex items-center gap-2">
+                              <span
+                                className={`rounded-full border px-2.5 py-0.5 text-[11px] font-black uppercase tracking-wider ${
+                                  categoryColors[report.category] || categoryColors.OTHER
+                                }`}
+                              >
+                                {report.category}
+                              </span>
+                              {isResolved ? (
+                                <span className="rounded-full bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 px-2 py-0.5 text-[10px] font-black">
+                                  ✓ RESOLVED
+                                </span>
+                              ) : (
+                                <span className="rounded-full bg-amber-500/20 border border-amber-500/40 text-amber-300 px-2 py-0.5 text-[10px] font-bold">
+                                  ● PENDING
+                                </span>
+                              )}
+                              <span className="font-mono text-xs text-slate-400 font-bold">{report.id}</span>
+                              <span className="text-xs text-slate-500">
+                                {new Date(report.createdAt).toLocaleString('en-IN', {
+                                  day: 'numeric',
+                                  month: 'short',
+                                  year: 'numeric',
+                                  hour: '2-digit',
+                                  minute: '2-digit',
+                                })}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              {/* Reply / Fix Email Button */}
+                              <button
+                                onClick={() => {
+                                  setReplyTicket(report);
+                                  setReplyClientEmail(report.clientEmail || '');
+                                  setReplyMessage(
+                                    `Dear ${report.clientName || 'Customer'},\n\nAapne jo issue report kiya tha (${report.category}), wo Dexon ke naye update me successfully fix kar diya gaya hai. Kripya app me 'Update Ready!' par click karein ya page refresh karein.\n\nThank you for choosing Dexon!\nBest regards,\nDexon Support Team`
+                                  );
+                                }}
+                                className="inline-flex items-center gap-1 rounded-lg bg-blue-600/30 border border-blue-500/40 px-2.5 py-1 text-xs font-bold text-blue-300 hover:bg-blue-600 hover:text-white transition"
+                                title="Send customer a resolution fix email from your domain"
+                              >
+                                <Mail className="h-3 w-3" />
+                                <span>Email / Fix Reply</span>
+                              </button>
+
+                              {report.clientPhone && (
+                                <a
+                                  href={`https://wa.me/${report.clientPhone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(
+                                    `Hello ${report.clientName || 'Customer'}, regarding your Dexon feedback ticket (${report.id}): `
+                                  )}`}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="inline-flex items-center gap-1 rounded-lg bg-emerald-600/30 border border-emerald-500/40 px-2.5 py-1 text-xs font-bold text-emerald-300 hover:bg-emerald-600 hover:text-white transition"
+                                >
+                                  <Send className="h-3 w-3" />
+                                  <span>WA Reply</span>
+                                </a>
+                              )}
+
+                              <button
+                                onClick={() => handleDeleteReport(report.id)}
+                                className="rounded-lg bg-rose-950/60 border border-rose-500/30 p-1.5 text-rose-400 hover:bg-rose-900 transition"
+                                title="Delete report"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
+                          </div>
+
+                          <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-300">
+                            <div>
+                              <span className="text-slate-400">Reporter:</span>{' '}
+                              <strong className="text-white">{report.clientName || 'Anonymous User'}</strong>
+                            </div>
+                            <div className="flex items-center gap-3">
+                              {report.clientPhone && (
+                                <div>
+                                  <span className="text-slate-400">Phone:</span>{' '}
+                                  <strong className="text-amber-300 font-mono">{report.clientPhone}</strong>
+                                </div>
+                              )}
+                              {report.clientEmail && (
+                                <div>
+                                  <span className="text-slate-400">Email:</span>{' '}
+                                  <strong className="text-blue-300 font-mono">{report.clientEmail}</strong>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="rounded-xl bg-slate-950/70 border border-slate-800/80 p-3 text-sm text-slate-200 whitespace-pre-wrap leading-relaxed font-sans">
+                            {report.message}
+                          </div>
+
+                          {report.resolutionNotes && (
+                            <div className="rounded-xl bg-emerald-950/40 border border-emerald-500/30 p-3 text-xs text-emerald-200">
+                              <span className="font-bold text-emerald-400">✅ Resolution Fix Dispatched:</span>{' '}
+                              {report.resolutionNotes}
+                            </div>
+                          )}
+
+                          {report.diagnostics && (
+                            <details className="text-[11px] text-slate-400 cursor-pointer">
+                              <summary className="hover:text-slate-300 font-mono">View System Diagnostics ({report.diagnostics.platform || 'Web'})</summary>
+                              <div className="mt-2 rounded-lg bg-slate-950 p-2.5 font-mono text-[10px] text-slate-300 border border-slate-800 space-y-1">
+                                <div><b>App Version:</b> {report.diagnostics.appVersion || 'Unknown'}</div>
+                                <div><b>Browser:</b> {report.diagnostics.userAgent || 'N/A'}</div>
+                                <div><b>Screen:</b> {report.diagnostics.screenResolution || 'N/A'}</div>
+                                <div><b>Active Key:</b> {report.diagnostics.activeLicenseKey || 'None'}</div>
+                              </div>
+                            </details>
+                          )}
+                        </div>
+                      );
+                    })}
+
+                  {clientBugReports.filter((r) => reportFilter === 'ALL' || r.category === reportFilter).length === 0 && (
+                    <div className="rounded-2xl border border-slate-800 bg-slate-900/40 p-8 text-center text-slate-400">
+                      <Inbox className="h-10 w-10 text-slate-600 mx-auto mb-2" />
+                      <p className="font-bold text-white text-sm">Abhi koi bug report nahi aayi hai</p>
+                      <p className="text-xs text-slate-500 mt-1">
+                        Jab bhi koi client samne diye gaye "Report Issue" button se koi bug submit karega, wo yahan show hoga.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Modal: Restore Past / Lost License Key */}
+        {showRestoreModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm animate-fadeIn">
+            <div className="w-full max-w-md rounded-2xl border border-amber-500/40 bg-slate-900 p-6 text-slate-100 shadow-2xl space-y-4">
+              <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+                <div className="flex items-center gap-2">
+                  <div className="rounded-xl bg-amber-500/20 p-2 text-amber-400">
+                    <KeyRound className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <h4 className="font-black text-white text-base">Restore Previous / Lost Key</h4>
+                    <p className="text-xs text-slate-400">Customer ki banayi gayi key vault me wapas add karein</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowRestoreModal(false)}
+                  className="rounded-lg p-1 text-slate-400 hover:text-white"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+
+              <div className="space-y-3">
+                <div>
+                  <label className="text-xs font-bold text-slate-300 block mb-1">
+                    Paste License Key (e.g. NXB-BIZ-XXXX-XXXX-XXXX) *
+                  </label>
+                  <input
+                    type="text"
+                    value={restoreKeyInput}
+                    onChange={(e) => handleRestoreKeyInputChange(e.target.value)}
+                    placeholder="NXB-BIZ-9828-2704-8AB7"
+                    className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm font-mono text-amber-400 uppercase tracking-widest focus:border-amber-400 focus:outline-none"
+                    autoFocus
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold text-slate-300 block mb-1">
+                    Customer / Business Name (Optional)
+                  </label>
+                  <input
+                    type="text"
+                    value={restoreClientInput}
+                    onChange={(e) => setRestoreClientInput(e.target.value)}
+                    placeholder="Client ka naam"
+                    className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white focus:border-amber-400 focus:outline-none"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="text-xs font-bold text-slate-300 block mb-1">
+                      License Plan
+                    </label>
+                    <select
+                      value={restorePlanInput}
+                      onChange={(e) => setRestorePlanInput(e.target.value as any)}
+                      className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-xs font-bold text-amber-300 focus:border-amber-400 focus:outline-none cursor-pointer"
+                    >
+                      <option value="Business">🚀 Business Plan</option>
+                      <option value="Pro">⭐ Pro Plan</option>
+                      <option value="Trial">Free Trial</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-bold text-slate-300 block mb-1">
+                      Expiry Date
+                    </label>
+                    <input
+                      type="date"
+                      value={restoreExpiryInput}
+                      onChange={(e) => setRestoreExpiryInput(e.target.value)}
+                      className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-1.5 text-xs text-white focus:border-amber-400 focus:outline-none"
+                    />
+                  </div>
+                </div>
+
+                <div className="rounded-xl bg-amber-950/30 border border-amber-500/20 p-3 text-xs text-amber-200/90 leading-relaxed">
+                  🛡️ <b>Automatic Recovery:</b> Pasted key ka format, client code aur validity detect ho gayi hai. Button dabate hi ye key aapke permanent vault me 100% restore ho jayegi aur client ki activation activate ho jayegi!
+                </div>
+              </div>
+
+              <div className="flex gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowRestoreModal(false)}
+                  className="flex-1 rounded-xl border border-slate-700 bg-slate-800 py-2.5 text-xs font-bold text-slate-300 hover:bg-slate-700"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleRestoreKey}
+                  className="flex-1 rounded-xl bg-amber-500 py-2.5 text-xs font-extrabold text-slate-950 hover:bg-amber-400 shadow-lg shadow-amber-500/20"
+                >
+                  Restore Key into Vault 🔓
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Modal: Upgrade / Edit Existing License Plan */}
+        {editingLicense && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm animate-fadeIn">
+            <div className="w-full max-w-md rounded-2xl border border-purple-500/40 bg-slate-900 p-6 text-slate-100 shadow-2xl space-y-4">
+              <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+                <div className="flex items-center gap-2">
+                  <div className="rounded-xl bg-purple-500/20 p-2 text-purple-400">
+                    <Sparkles className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <h4 className="font-black text-white text-base">Upgrade / Edit License Plan</h4>
+                    <p className="text-xs text-slate-400">Key wahi rahegi, data intact rahega — bas plan switch ho jayega</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setEditingLicense(null)}
+                  className="rounded-lg p-1 text-slate-400 hover:text-white"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+
+              <div className="space-y-3">
+                <div>
+                  <label className="text-xs font-bold text-slate-400 block mb-1">Customer / Client Name</label>
+                  <input
+                    type="text"
+                    value={editClientName}
+                    onChange={(e) => setEditClientName(e.target.value)}
+                    className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-xs font-bold text-white focus:border-purple-400 focus:outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold text-slate-400 block mb-1">License Key (Locked & Persistent)</label>
+                  <div className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 text-xs font-mono font-bold text-amber-400">
+                    {editingLicense.key}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="text-xs font-bold text-slate-300 block mb-1">Upgrade / Switch Plan</label>
+                    <select
+                      value={editPlan}
+                      onChange={(e) => setEditPlan(e.target.value as any)}
+                      className="w-full rounded-xl border border-purple-500/50 bg-slate-950 px-3 py-2 text-xs font-bold text-purple-300 focus:border-purple-400 focus:outline-none cursor-pointer"
+                    >
+                      <option value="Business">🚀 Business Plan (All Features)</option>
+                      <option value="Pro">⭐ Pro Plan</option>
+                      <option value="Trial">Free Trial</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-bold text-slate-300 block mb-1">New Expiry Date</label>
+                    <input
+                      type="date"
+                      value={editExpiry}
+                      onChange={(e) => setEditExpiry(e.target.value)}
+                      className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-1.5 text-xs text-white focus:border-purple-400 focus:outline-none"
+                    />
+                  </div>
+                </div>
+
+                <div className="rounded-xl bg-purple-950/30 border border-purple-500/20 p-3 text-xs text-purple-200/90 leading-relaxed">
+                  ✨ <b>Zero Data Loss Guarantee:</b> Customer ki key same rahegi. Unke pehle ke banaye saare invoices, customer contacts aur firm details wahi rahenge. Bas Pro se Business ke naye features (Multi-Firm, Unlimited Invoices, CRM) unlock ho jayenge!
+                </div>
+              </div>
+
+              <div className="flex gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setEditingLicense(null)}
+                  className="flex-1 rounded-xl border border-slate-700 bg-slate-800 py-2.5 text-xs font-bold text-slate-300 hover:bg-slate-700"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveEditLicense}
+                  className="flex-1 rounded-xl bg-purple-600 py-2.5 text-xs font-extrabold text-white hover:bg-purple-500 shadow-lg shadow-purple-500/20"
+                >
+                  Confirm & Upgrade Plan 🚀
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Modal: Send Resolution Fix Email / WhatsApp */}
+        {replyTicket && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm animate-fadeIn">
+            <div className="w-full max-w-lg rounded-2xl border border-blue-500/40 bg-slate-900 p-6 text-slate-100 shadow-2xl space-y-4">
+              <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+                <div className="flex items-center gap-2">
+                  <div className="rounded-xl bg-blue-500/20 p-2 text-blue-400">
+                    <Mail className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <h4 className="font-black text-white text-base">Send Fix Notification to Customer</h4>
+                    <p className="text-xs text-slate-400">Ticket #{replyTicket.id} • {replyTicket.clientName}</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setReplyTicket(null)}
+                  className="rounded-lg p-1 text-slate-400 hover:text-white"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+
+              <div className="space-y-3">
+                <div>
+                  <label className="text-xs font-bold text-slate-300 block mb-1">
+                    Customer Email Address (Fix notification bhejne ke liye)
+                  </label>
+                  <input
+                    type="email"
+                    value={replyClientEmail}
+                    onChange={(e) => setReplyClientEmail(e.target.value)}
+                    placeholder="customer@example.com"
+                    className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white focus:border-blue-400 focus:outline-none font-mono"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold text-slate-300 block mb-1">
+                    Resolution / Fix Message *
+                  </label>
+                  <textarea
+                    rows={5}
+                    value={replyMessage}
+                    onChange={(e) => setReplyMessage(e.target.value)}
+                    className="w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-xs text-white focus:border-blue-400 focus:outline-none font-sans leading-relaxed"
+                  />
+                </div>
+
+                <div className="rounded-xl bg-blue-950/40 border border-blue-500/30 p-2.5 text-[11px] text-blue-200 leading-relaxed">
+                  📧 <b>Sender Address:</b> <code>{businessEmailFrom || 'Dexon Support <support@dexonbusiness.com>'}</code> se customer ke inbox me professional notification dispatch hogi.
+                </div>
+              </div>
+
+              <div className="flex flex-wrap gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setReplyTicket(null)}
+                  className="rounded-xl border border-slate-700 bg-slate-800 px-4 py-2.5 text-xs font-bold text-slate-300 hover:bg-slate-700"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleResolveAndReply(replyTicket, 'whatsapp')}
+                  className="flex-1 rounded-xl bg-emerald-600 px-4 py-2.5 text-xs font-bold text-white hover:bg-emerald-500 flex items-center justify-center gap-1.5"
+                >
+                  <Send className="h-3.5 w-3.5" />
+                  Send WhatsApp Fix
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleResolveAndReply(replyTicket, 'email')}
+                  disabled={isSendingReply}
+                  className="flex-1 rounded-xl bg-blue-600 px-4 py-2.5 text-xs font-bold text-white hover:bg-blue-500 flex items-center justify-center gap-1.5 disabled:opacity-50"
+                >
+                  {isSendingReply ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Mail className="h-3.5 w-3.5" />}
+                  Send Domain Email
+                </button>
+              </div>
+            </div>
           </div>
         )}
       </div>

@@ -34,7 +34,8 @@ import {
   Database,
   RefreshCcw,
   Briefcase,
-  Receipt
+  Receipt,
+  TrendingUp
 } from 'lucide-react';
 import { PWAInstallButton } from './PWAInstallButton';
 
@@ -77,6 +78,12 @@ interface HeaderNavProps {
   country?: CountryCode;
   onCountryChange?: (c: CountryCode) => void;
   onOpenThemeDesigner?: () => void;
+  hasUpdateAvailable?: boolean;
+  installedVersion?: string;
+  onOpenUpdateModal?: () => void;
+  onOpenBugReport?: () => void;
+  onExportExcel?: () => void;
+  onOpenSalesTrends?: () => void;
 }
 
 export const HeaderNav: React.FC<HeaderNavProps> = ({
@@ -118,6 +125,12 @@ export const HeaderNav: React.FC<HeaderNavProps> = ({
   country = 'IN',
   onCountryChange,
   onOpenThemeDesigner,
+  hasUpdateAvailable = false,
+  installedVersion = '2.4.0',
+  onOpenUpdateModal,
+  onOpenBugReport,
+  onExportExcel,
+  onOpenSalesTrends,
 }) => {
   const isBusiness = license?.plan === 'Business';
   const isPro = license?.plan === 'Pro';
@@ -389,6 +402,49 @@ export const HeaderNav: React.FC<HeaderNavProps> = ({
             <span>WhatsApp</span>
           </button>
 
+          {/* 3.5. Export Current Invoice Table to Excel */}
+          {onExportExcel && (
+            <button
+              onClick={onExportExcel}
+              className="flex items-center gap-1.5 rounded-lg border border-teal-500/50 bg-teal-950/40 px-3 py-1.5 text-xs font-bold text-teal-300 hover:bg-teal-900/60 hover:text-white transition active:scale-95 shadow-sm"
+              title="Export current invoice items and tax table to Microsoft Excel spreadsheet (.xlsx)"
+            >
+              <FileSpreadsheet className="h-3.5 w-3.5 text-teal-400" />
+              <span>Export Excel</span>
+            </button>
+          )}
+
+          {/* 4. In-App Update Button / Version Badge */}
+          {hasUpdateAvailable ? (
+            <button
+              onClick={onOpenUpdateModal}
+              className="flex items-center gap-1.5 rounded-lg border border-amber-400 bg-gradient-to-r from-amber-500 to-yellow-500 px-2.5 py-1.5 text-xs font-black text-slate-950 shadow-md shadow-amber-500/30 hover:brightness-110 active:scale-95 transition animate-pulse"
+              title="New Update Available! Click to see changelog & upgrade"
+            >
+              <Sparkles className="h-3.5 w-3.5" />
+              <span>Update Ready!</span>
+              <span className="rounded bg-slate-950 text-amber-300 px-1 py-0.2 text-[9px] font-black">v2.5.0</span>
+            </button>
+          ) : (
+            <button
+              onClick={onOpenUpdateModal}
+              className="flex items-center gap-1.5 rounded-lg border border-slate-800 bg-slate-950 px-2 py-1.5 text-[11px] font-semibold text-slate-400 hover:text-white hover:border-slate-700 transition"
+              title="Dexon Version & What's New"
+            >
+              <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
+              <span>v{installedVersion}</span>
+            </button>
+          )}
+
+          {/* 5. Client Bug Report / Support Box */}
+          <button
+            onClick={onOpenBugReport}
+            className="flex items-center gap-1.5 rounded-lg border border-blue-500/40 bg-blue-950/40 px-2.5 py-1.5 text-xs font-bold text-blue-300 hover:bg-blue-900/60 hover:text-white transition"
+            title="Report an issue or bug (confidential ticket sent to Dexon owner)"
+          >
+            <span>🐛 Report Issue</span>
+          </button>
+
           {/* OWNER EXCLUSIVE TOOLS (Only visible when unlocked via 5-clicks or Ctrl+Shift+A) */}
           {isOwnerUnlocked && (
             <>
@@ -397,7 +453,7 @@ export const HeaderNav: React.FC<HeaderNavProps> = ({
               {/* Direct Website ZIP Download */}
               <a
                 href="/api/download-zip"
-                download="nexbill-website-deploy.zip"
+                download="dexon-website-deploy.zip"
                 className="flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-amber-500 to-yellow-500 px-2.5 py-1.5 text-xs font-black text-slate-950 shadow-md shadow-amber-500/25 hover:brightness-110 active:scale-95 transition"
                 title="Owner: Download ready-to-upload website ZIP"
               >
@@ -594,6 +650,16 @@ export const HeaderNav: React.FC<HeaderNavProps> = ({
               <FileSpreadsheet className="h-3 w-3 text-purple-400" />
               <span>GSTR-1</span>
             </button>
+            {onOpenSalesTrends && (
+              <button
+                onClick={onOpenSalesTrends}
+                className="flex items-center gap-1 rounded-md border border-emerald-500/40 bg-emerald-950/40 px-2 py-0.5 text-[11px] font-black text-emerald-300 hover:bg-emerald-900/50 hover:text-white transition shadow-sm"
+                title="Monthly Sales Trends Chart & Analytics (Interactive Recharts Visualizer)"
+              >
+                <TrendingUp className="h-3.5 w-3.5 text-emerald-400" />
+                <span>Sales Trends</span>
+              </button>
+            )}
             {onOpenBooks && (
               <button
                 onClick={onOpenBooks}

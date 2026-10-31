@@ -20,6 +20,7 @@ import {
   RotateCcw,
   CheckCircle2,
   AlertTriangle,
+  TrendingUp,
 } from 'lucide-react';
 
 interface CustomerCrmModalProps {
@@ -33,6 +34,7 @@ interface CustomerCrmModalProps {
   onDeleteHistoryRecord: (id: string) => void;
   onImportInvoicesHistory?: (records: InvoiceHistoryRecord[]) => void;
   onDataRestored?: () => void;
+  onOpenSalesTrends?: () => void;
 }
 
 export const CustomerCrmModal: React.FC<CustomerCrmModalProps> = ({
@@ -46,6 +48,7 @@ export const CustomerCrmModal: React.FC<CustomerCrmModalProps> = ({
   onDeleteHistoryRecord,
   onImportInvoicesHistory,
   onDataRestored,
+  onOpenSalesTrends,
 }) => {
   const [activeTab, setActiveTab] = useState<'crm' | 'history'>('crm');
   const [searchTerm, setSearchTerm] = useState('');
@@ -552,8 +555,22 @@ export const CustomerCrmModal: React.FC<CustomerCrmModalProps> = ({
             </button>
           </div>
 
-          {/* Quick Actions (JSON Backup & Restore) */}
+          {/* Quick Actions (Sales Trends, JSON Backup & Restore) */}
           <div className="flex items-center gap-2 text-xs">
+            {onOpenSalesTrends && (
+              <button
+                onClick={() => {
+                  onClose();
+                  onOpenSalesTrends();
+                }}
+                className="flex items-center gap-1.5 rounded-lg border border-emerald-500/40 bg-emerald-950/40 px-3 py-1.5 font-black text-emerald-300 hover:bg-emerald-900/60 hover:text-white transition shadow-sm"
+                title="View interactive Recharts monthly sales trends and analytics"
+              >
+                <TrendingUp className="h-3.5 w-3.5 text-emerald-400" />
+                <span>Sales Trends Chart</span>
+              </button>
+            )}
+
             <button
               onClick={handleExportFullJsonBackup}
               className="flex items-center gap-1.5 rounded-lg border border-cyan-500/40 bg-cyan-950/30 px-3 py-1.5 font-bold text-cyan-300 hover:bg-cyan-900/50 hover:text-white transition shadow-sm"

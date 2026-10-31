@@ -6,7 +6,8 @@ export type TradeKey =
   | 'electronics'
   | 'hardware'
   | 'general_trading'
-  | 'automobile';
+  | 'automobile'
+  | 'finance';
 
 export interface TradeConfig {
   key: TradeKey;
@@ -237,6 +238,42 @@ export const TRADE_CONFIGS: Record<TradeKey, TradeConfig> = {
       { name: 'Professional Consultancy & Management Service', hsn: '998311', gst: 18, defaultBuy: 5000 },
       { name: 'Technical Support & Annual Maintenance Contract', hsn: '998717', gst: 18, defaultBuy: 3500 },
       { name: 'Freight & Transportation Handling Charges', hsn: '996511', gst: 5, defaultBuy: 800 },
+    ],
+  },
+
+  finance: {
+    key: 'finance',
+    title: 'CA, Tax Consultants & Accounting Firms',
+    shortName: 'CA & Accounts',
+    icon: '💼',
+    tagline: 'Multi-Firm Client Billing, Professional Retainers, Audit Fees & ITR Daybook',
+    description: 'Tailored for Chartered Accountants, Tax Consultants, Bookkeepers, and Advocates with Client Codes, Retainer Billing, Audit Fees, and Multi-Firm GST filing.',
+    supports7030: false,
+    supportsWcc: false,
+    supportsBankEstimate: false,
+    supportsSolarBenefits: false,
+    lumpSumQuotation: true,
+    allowedDocTypes: ['invoice', 'quotation'],
+    tradeSpecificFields: {
+      customerFields: [
+        { key: 'appNo', label: 'Client File / PAN Ref', placeholder: 'PAN / Client File #A-102' },
+        { key: 'consumerNo', label: 'Assessment Year / Return Type', placeholder: 'AY 2026-27 / GSTR-3B' },
+        { key: 'sanctionLoad', label: 'Service Category / Assignment', placeholder: 'Statutory Audit / Tax Advisory' },
+      ],
+      itemFields: [
+        { key: 'serialNumbers', label: 'Period / Quarter / Challan Ref', placeholder: 'Q1 Apr-Jun 2026 / Challan #8912' },
+      ],
+    },
+    defaultStocks: [
+      { name: 'Statutory Audit & Financial Reporting Fees', hsn: '998222', gst: 18, defaultBuy: 15000 },
+      { name: 'Monthly GST Compliance & GSTR-1/3B Filing Retainer', hsn: '998231', gst: 18, defaultBuy: 3000 },
+      { name: 'Income Tax Return (ITR) Preparation & Filing Advisory', hsn: '998232', gst: 18, defaultBuy: 2500 },
+      { name: 'TDS & TCS Quarterly Return Filing & Reconciliation', hsn: '998231', gst: 18, defaultBuy: 2000 },
+      { name: 'ROC Company / LLP Annual Filing & Secretarial Work', hsn: '998223', gst: 18, defaultBuy: 5000 },
+      { name: 'Business Tax Consultation & Notice Reply Drafting', hsn: '998231', gst: 18, defaultBuy: 3500 },
+      { name: 'Project Report & Bank Loan CMA Data Preparation', hsn: '998311', gst: 18, defaultBuy: 8000 },
+      { name: 'Internal Audit & Books Maintenance Charges', hsn: '998222', gst: 18, defaultBuy: 6000 },
+      { name: 'Out-of-Pocket Statutory Filing Fees & Stamp Duties', hsn: '9982', gst: 0, defaultBuy: 1000 },
     ],
   },
 };
