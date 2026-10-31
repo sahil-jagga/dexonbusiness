@@ -31,6 +31,59 @@ export interface LicenseRecord {
   totalInvoicesGenerated: number;
   boundDeviceId?: string;
   notes?: string;
+  resellerId?: string;
+  resellerName?: string;
+}
+
+export interface ResellerRecord {
+  id: string;
+  name: string;
+  phone: string;
+  email?: string;
+  pin: string; // e.g. '8899' or 'CA-4491'
+  allocatedQuota: number;
+  usedQuota: number;
+  allowedPlans: ('Pro' | 'Business' | 'Trial')[];
+  commissionNotes?: string;
+  status: 'ACTIVE' | 'SUSPENDED';
+  createdAt: string;
+}
+
+const RESELLERS_FILE = path.join(DATA_DIR, 'resellers.json');
+
+const DEFAULT_RESELLERS: ResellerRecord[] = [
+  {
+    id: 'RES-CA-DEMO',
+    name: 'Sharma & Associates (CA Partner)',
+    phone: '98765-43210',
+    email: 'sharma.ca@example.com',
+    pin: '8899',
+    allocatedQuota: 10,
+    usedQuota: 2,
+    allowedPlans: ['Pro', 'Business'],
+    commissionNotes: '₹1,000/key agreed rate. ₹10,000 paid via UPI',
+    status: 'ACTIVE',
+    createdAt: new Date().toISOString(),
+  },
+];
+
+function getResellers(): ResellerRecord[] {
+  ensureDataFile();
+  if (!fs.existsSync(RESELLERS_FILE)) {
+    fs.writeFileSync(RESELLERS_FILE, JSON.stringify(DEFAULT_RESELLERS, null, 2), 'utf-8');
+    return DEFAULT_RESELLERS;
+  }
+  try {
+    const raw = fs.readFileSync(RESELLERS_FILE, 'utf-8');
+    return JSON.parse(raw);
+  } catch {
+    return DEFAULT_RESELLERS;
+  }
+}
+
+function saveResellers(list: ResellerRecord[]) {
+  ensureDataFile();
+  fs.writeFileSync(RESELLERS_FILE, JSON.stringify(list, null, 2), 'utf-8');
 }
 
 const DEFAULT_LICENSES: LicenseRecord[] = [
@@ -513,6 +566,348 @@ app.post('/api/admin/licenses/:key/reset-device', (req, res) => {
   found.boundDeviceId = undefined;
   saveLicenses(licenses);
   return res.json({ success: true, message: `Device binding cleared for key ${targetKey}. Now ready for new device activation.` });
+});
+
+// -------------------------------------------------------------
+// Reseller & Partner System (Sub-Accounts / Key Quotas)
+// -------------------------------------------------------------
+
+function getResellerByReq(req: express.Request): ResellerRecord | null {
+  const pin = (req.headers['x-reseller-pin'] as string) || (req.body?.pin as string);
+  if (!pin) return null;
+  const cleanPin = String(pin).trim();
+  const resellers = getResellers();
+  return resellers.find((r) => r.pin === cleanPin && r.status === 'ACTIVE') || null;
+}
+
+// Reseller Login
+app.post('/api/reseller/login', (req, res) => {
+  const { pin } = req.body;
+  if (!pin) {
+    return res.status(400).json({ error: 'Reseller PIN required' });
+  }
+  const cleanPin = String(pin).trim();
+  const resellers = getResellers();
+  const found = resellers.find((r) => r.pin === cleanPin);
+
+  if (!found) {
+    return res.status(401).json({ error: 'Galat Reseller PIN. Kripya apna authorized 4-digit PIN enter karein.' });
+  }
+
+  if (found.status === 'SUSPENDED') {
+    return res.status(403).json({ error: 'Aapka Reseller Account temporary suspended hai. Contact Dexon Owner: 94298-42000' });
+  }
+
+  return res.json({
+    success: true,
+    reseller: {
+      id: found.id,
+      name: found.name,
+      phone: found.phone,
+      email: found.email,
+      allocatedQuota: found.allocatedQuota,
+      usedQuota: found.usedQuota,
+      availableQuota: Math.max(0, found.allocatedQuota - found.usedQuota),
+      allowedPlans: found.allowedPlans,
+      status: found.status,
+    },
+  });
+});
+
+// Reseller Profile & Quota Info
+app.get('/api/reseller/profile', (req, res) => {
+  const reseller = getResellerByReq(req);
+  if (!reseller) {
+    return res.status(401).json({ error: 'Unauthorized: Invalid or inactive Reseller PIN' });
+  }
+  return res.json({
+    reseller: {
+      id: reseller.id,
+      name: reseller.name,
+      phone: reseller.phone,
+      email: reseller.email,
+      allocatedQuota: reseller.allocatedQuota,
+      usedQuota: reseller.usedQuota,
+      availableQuota: Math.max(0, reseller.allocatedQuota - reseller.usedQuota),
+      allowedPlans: reseller.allowedPlans,
+      status: reseller.status,
+    },
+  });
+});
+
+// Reseller Client Licenses (Shows ONLY keys created by this reseller)
+app.get('/api/reseller/licenses', (req, res) => {
+  const reseller = getResellerByReq(req);
+  if (!reseller) {
+    return res.status(401).json({ error: 'Unauthorized: Invalid or inactive Reseller PIN' });
+  }
+
+  const allLicenses = getLicenses();
+  const myLicenses = allLicenses.filter((l) => l.resellerId === reseller.id);
+
+  return res.json({
+    licenses: myLicenses,
+    quota: {
+      allocated: reseller.allocatedQuota,
+      used: reseller.usedQuota,
+      available: Math.max(0, reseller.allocatedQuota - reseller.usedQuota),
+    },
+  });
+});
+
+// Reseller Generates a Client Key (Deducts 1 from quota)
+app.post('/api/reseller/generate-key', (req, res) => {
+  const reseller = getResellerByReq(req);
+  if (!reseller) {
+    return res.status(401).json({ error: 'Unauthorized: Invalid or inactive Reseller PIN' });
+  }
+
+  const availableQuota = reseller.allocatedQuota - reseller.usedQuota;
+  if (availableQuota <= 0) {
+    return res.status(403).json({
+      error: '❌ Key Quota Exceeded! Aapka balance 0 ho chuka hai. Naye keys generate karne ke liye Owner (Sahil - 94298-42000) se quota top-up karwayein.',
+    });
+  }
+
+  const { clientName, clientPhone, plan, durationMonths, notes } = req.body;
+  if (!clientName || !clientName.trim()) {
+    return res.status(400).json({ error: 'Client / Business Name required' });
+  }
+
+  const selectedPlan = plan === 'Business' ? 'Business' : 'Pro';
+  const months = Number(durationMonths) || 12;
+
+  const expiryDate = new Date();
+  expiryDate.setMonth(expiryDate.getMonth() + months);
+  const expiryStr = expiryDate.toISOString().split('T')[0];
+
+  // Algorithmic key format
+  const yearShort = expiryDate.getFullYear().toString().substring(2);
+  const monthShort = String(expiryDate.getMonth() + 1).padStart(2, '0');
+  const expiryCode = `${yearShort}${monthShort}`;
+  const randomCode = Math.random().toString(36).substring(2, 6).toUpperCase();
+  const prefix = selectedPlan === 'Business' ? 'DX-BIZ' : 'DX-PRO';
+  const checksum = Math.random().toString(16).substring(2, 6).toUpperCase();
+  const generatedKey = `${prefix}-${randomCode}-${expiryCode}-${checksum}`;
+
+  const allLicenses = getLicenses();
+  const newLicense: LicenseRecord = {
+    key: generatedKey,
+    clientName: clientName.trim(),
+    clientPhone: (clientPhone || '').trim(),
+    plan: selectedPlan,
+    expiry: expiryStr,
+    invoiceLimit: 99999,
+    isActive: true,
+    createdAt: new Date().toISOString(),
+    totalInvoicesGenerated: 0,
+    notes: (notes || '') + ` | Resold by: ${reseller.name}`,
+    resellerId: reseller.id,
+    resellerName: reseller.name,
+  };
+
+  allLicenses.unshift(newLicense);
+  saveLicenses(allLicenses);
+
+  // Deduct quota
+  const allResellers = getResellers();
+  const targetReseller = allResellers.find((r) => r.id === reseller.id);
+  if (targetReseller) {
+    targetReseller.usedQuota += 1;
+    saveResellers(allResellers);
+  }
+
+  return res.json({
+    success: true,
+    license: newLicense,
+    remainingQuota: Math.max(0, reseller.allocatedQuota - (reseller.usedQuota + 1)),
+    message: `✅ License generated successfully for ${clientName}!`,
+  });
+});
+
+// Reseller Resets Bound Device for Their Client
+app.post('/api/reseller/reset-device', (req, res) => {
+  const reseller = getResellerByReq(req);
+  if (!reseller) {
+    return res.status(401).json({ error: 'Unauthorized: Invalid or inactive Reseller PIN' });
+  }
+
+  const { key } = req.body;
+  if (!key) return res.status(400).json({ error: 'Key required' });
+
+  const cleanKey = String(key).trim().toUpperCase();
+  const allLicenses = getLicenses();
+  const found = allLicenses.find((l) => l.key.toUpperCase() === cleanKey);
+
+  if (!found) {
+    return res.status(404).json({ error: 'License not found' });
+  }
+
+  if (found.resellerId !== reseller.id) {
+    return res.status(403).json({ error: 'Aap sirf apne client ki device reset kar sakte hain.' });
+  }
+
+  found.boundDeviceId = undefined;
+  saveLicenses(allLicenses);
+
+  return res.json({
+    success: true,
+    message: `Device binding cleared for client key ${cleanKey}. Client ab naye device par chala sakta hai.`,
+  });
+});
+
+// -------------------------------------------------------------
+// Master Admin: Reseller Management Endpoints (Owner PIN Protected)
+// -------------------------------------------------------------
+
+// Get all resellers with summary
+app.get('/api/admin/resellers', (req, res) => {
+  if (!isAdmin(req)) {
+    return res.status(401).json({ error: 'Unauthorized: Admin PIN required' });
+  }
+
+  const resellers = getResellers();
+  const licenses = getLicenses();
+
+  const enriched = resellers.map((r) => {
+    const keysCount = licenses.filter((l) => l.resellerId === r.id).length;
+    return {
+      ...r,
+      actualKeysCreated: keysCount,
+      availableQuota: Math.max(0, r.allocatedQuota - r.usedQuota),
+    };
+  });
+
+  const stats = {
+    totalResellers: resellers.length,
+    activeResellers: resellers.filter((r) => r.status === 'ACTIVE').length,
+    totalAllocatedQuota: resellers.reduce((sum, r) => sum + r.allocatedQuota, 0),
+    totalUsedQuota: resellers.reduce((sum, r) => sum + r.usedQuota, 0),
+    totalAvailableQuota: resellers.reduce((sum, r) => sum + Math.max(0, r.allocatedQuota - r.usedQuota), 0),
+  };
+
+  return res.json({ resellers: enriched, stats });
+});
+
+// Create a new Reseller
+app.post('/api/admin/resellers', (req, res) => {
+  if (!isAdmin(req)) {
+    return res.status(401).json({ error: 'Unauthorized: Admin PIN required' });
+  }
+
+  const { name, phone, email, pin, allocatedQuota, commissionNotes } = req.body;
+  if (!name || !name.trim()) {
+    return res.status(400).json({ error: 'Reseller / Firm name is required' });
+  }
+
+  const resellers = getResellers();
+  const cleanPin = pin && pin.trim() ? pin.trim() : Math.floor(1000 + Math.random() * 9000).toString();
+
+  if (resellers.some((r) => r.pin === cleanPin)) {
+    return res.status(400).json({ error: 'Yeh Reseller PIN already kisi aur partner ka hai. Kripya doosra PIN chunein.' });
+  }
+
+  const idSlug = name.replace(/[^a-zA-Z0-9]/g, '').toLowerCase().substring(0, 10);
+  const newReseller: ResellerRecord = {
+    id: `RES-${idSlug}-${Math.floor(100 + Math.random() * 900)}`,
+    name: name.trim(),
+    phone: (phone || '').trim(),
+    email: (email || '').trim(),
+    pin: cleanPin,
+    allocatedQuota: Number(allocatedQuota) || 5,
+    usedQuota: 0,
+    allowedPlans: ['Pro', 'Business'],
+    commissionNotes: (commissionNotes || '').trim(),
+    status: 'ACTIVE',
+    createdAt: new Date().toISOString(),
+  };
+
+  resellers.unshift(newReseller);
+  saveResellers(resellers);
+
+  return res.json({
+    success: true,
+    reseller: newReseller,
+    message: `✅ Reseller ${newReseller.name} registered! Login PIN: ${newReseller.pin}`,
+  });
+});
+
+// Top-up or Adjust Reseller Quota
+app.put('/api/admin/resellers/:id/quota', (req, res) => {
+  if (!isAdmin(req)) {
+    return res.status(401).json({ error: 'Unauthorized: Admin PIN required' });
+  }
+
+  const { id } = req.params;
+  const { addQuota, setTotalQuota, notes } = req.body;
+
+  const resellers = getResellers();
+  const target = resellers.find((r) => r.id === id);
+
+  if (!target) {
+    return res.status(404).json({ error: 'Reseller not found' });
+  }
+
+  if (addQuota !== undefined) {
+    target.allocatedQuota += Number(addQuota) || 0;
+  } else if (setTotalQuota !== undefined) {
+    target.allocatedQuota = Math.max(target.usedQuota, Number(setTotalQuota) || 0);
+  }
+
+  if (notes) {
+    target.commissionNotes = (target.commissionNotes ? target.commissionNotes + ' | ' : '') + notes;
+  }
+
+  saveResellers(resellers);
+
+  return res.json({
+    success: true,
+    reseller: target,
+    message: `✅ Quota updated for ${target.name}! New Available: ${target.allocatedQuota - target.usedQuota} keys`,
+  });
+});
+
+// Toggle Reseller Status (Active vs Suspended)
+app.put('/api/admin/resellers/:id/status', (req, res) => {
+  if (!isAdmin(req)) {
+    return res.status(401).json({ error: 'Unauthorized: Admin PIN required' });
+  }
+
+  const { id } = req.params;
+  const resellers = getResellers();
+  const target = resellers.find((r) => r.id === id);
+
+  if (!target) {
+    return res.status(404).json({ error: 'Reseller not found' });
+  }
+
+  target.status = target.status === 'ACTIVE' ? 'SUSPENDED' : 'ACTIVE';
+  saveResellers(resellers);
+
+  return res.json({
+    success: true,
+    status: target.status,
+    message: `Reseller is now ${target.status}`,
+  });
+});
+
+// Delete Reseller
+app.delete('/api/admin/resellers/:id', (req, res) => {
+  if (!isAdmin(req)) {
+    return res.status(401).json({ error: 'Unauthorized: Admin PIN required' });
+  }
+
+  const { id } = req.params;
+  let resellers = getResellers();
+  const initialLen = resellers.length;
+  resellers = resellers.filter((r) => r.id !== id);
+
+  if (resellers.length === initialLen) {
+    return res.status(404).json({ error: 'Reseller not found' });
+  }
+
+  saveResellers(resellers);
+  return res.json({ success: true, message: 'Reseller removed successfully' });
 });
 
 // Export licenses as JSON

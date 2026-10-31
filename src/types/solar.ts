@@ -170,6 +170,22 @@ export interface LicenseInfo {
   maxDevices?: number;
   isOfflineFallback?: boolean;
   notes?: string;
+  resellerId?: string;
+  resellerName?: string;
+}
+
+export interface ResellerAccount {
+  id: string;
+  name: string;
+  phone: string;
+  email?: string;
+  pin: string;
+  allocatedQuota: number;
+  usedQuota: number;
+  allowedPlans: ('Pro' | 'Business' | 'Trial')[];
+  commissionNotes?: string;
+  status: 'ACTIVE' | 'SUSPENDED';
+  createdAt: string;
 }
 
 export type TransactionType = 'INFLOW' | 'OUTFLOW';

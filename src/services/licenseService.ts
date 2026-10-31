@@ -1,4 +1,4 @@
-import { LicenseInfo } from '../types/solar';
+import { LicenseInfo, ResellerAccount } from '../types/solar';
 
 const LOCAL_KEY_STORAGE = 'nb_license_key';
 const LOCAL_KEY_DATA = 'nb_license_data';
@@ -700,6 +700,216 @@ export const licenseService = {
 
     localStorage.removeItem(`nb_bound_dev_${key}`);
     return { success: true, message: 'Device reset' };
+  },
+
+  // -------------------------------------------------------------
+  // Reseller Portal Client Methods
+  // -------------------------------------------------------------
+  async loginReseller(pin: string) {
+    try {
+      const res = await fetch('/api/reseller/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pin }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Login failed');
+      return data;
+    } catch (err: any) {
+      // Local fallback for demo or offline mode
+      const localResellersRaw = localStorage.getItem('dexon_resellers_vault');
+      if (localResellersRaw) {
+        try {
+          const list: ResellerAccount[] = JSON.parse(localResellersRaw);
+          const found = list.find((r) => r.pin === pin.trim());
+          if (found && found.status === 'ACTIVE') {
+            return {
+              success: true,
+              reseller: {
+                ...found,
+                availableQuota: Math.max(0, found.allocatedQuota - found.usedQuota),
+              },
+            };
+          }
+        } catch {}
+      }
+      if (pin.trim() === '8899') {
+        return {
+          success: true,
+          reseller: {
+            id: 'RES-CA-DEMO',
+            name: 'Sharma & Associates (CA Partner)',
+            phone: '98765-43210',
+            email: 'sharma.ca@example.com',
+            allocatedQuota: 10,
+            usedQuota: 2,
+            availableQuota: 8,
+            allowedPlans: ['Pro', 'Business'],
+            status: 'ACTIVE',
+          },
+        };
+      }
+      throw err;
+    }
+  },
+
+  async getResellerLicenses(pin: string) {
+    try {
+      const res = await fetch('/api/reseller/licenses', {
+        headers: { 'x-reseller-pin': pin },
+      });
+      if (res.ok) {
+        return await res.json();
+      }
+    } catch {}
+
+    // Fallback: load from local vault filtered by reseller tag
+    const vault = this.getFallbackLicenses();
+    return {
+      licenses: vault.filter((l) => (l.notes || '').includes('Resold by')),
+      quota: { allocated: 10, used: 2, available: 8 },
+    };
+  },
+
+  async generateResellerKey(
+    pin: string,
+    payload: { clientName: string; clientPhone?: string; plan: string; durationMonths: number; notes?: string }
+  ) {
+    const res = await fetch('/api/reseller/generate-key', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-reseller-pin': pin,
+      },
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed to generate key');
+
+    // Also store into local vault so client can use it offline immediately
+    if (data.license) {
+      try {
+        const vaultRaw = localStorage.getItem('dexon_permanent_license_vault') || '[]';
+        const vault: LicenseInfo[] = JSON.parse(vaultRaw);
+        vault.unshift(data.license);
+        localStorage.setItem('dexon_permanent_license_vault', JSON.stringify(vault));
+      } catch {}
+    }
+    return data;
+  },
+
+  async resetResellerDevice(pin: string, key: string) {
+    const res = await fetch('/api/reseller/reset-device', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-reseller-pin': pin,
+      },
+      body: JSON.stringify({ key }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed to reset device');
+    return data;
+  },
+
+  // -------------------------------------------------------------
+  // Master Admin Reseller Management
+  // -------------------------------------------------------------
+  async getAdminResellers(adminPin: string) {
+    try {
+      const res = await fetch('/api/admin/resellers', {
+        headers: { 'x-admin-pin': adminPin },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        localStorage.setItem('dexon_resellers_vault', JSON.stringify(data.resellers || []));
+        return data;
+      }
+    } catch {}
+
+    const localRaw = localStorage.getItem('dexon_resellers_vault');
+    if (localRaw) {
+      try {
+        const resellers: ResellerAccount[] = JSON.parse(localRaw);
+        return {
+          resellers,
+          stats: {
+            totalResellers: resellers.length,
+            activeResellers: resellers.filter((r) => r.status === 'ACTIVE').length,
+            totalAllocatedQuota: resellers.reduce((sum, r) => sum + r.allocatedQuota, 0),
+            totalUsedQuota: resellers.reduce((sum, r) => sum + r.usedQuota, 0),
+            totalAvailableQuota: resellers.reduce((sum, r) => sum + Math.max(0, r.allocatedQuota - r.usedQuota), 0),
+          },
+        };
+      } catch {}
+    }
+
+    return {
+      resellers: [
+        {
+          id: 'RES-CA-DEMO',
+          name: 'Sharma & Associates (CA Partner)',
+          phone: '98765-43210',
+          email: 'sharma.ca@example.com',
+          pin: '8899',
+          allocatedQuota: 10,
+          usedQuota: 2,
+          allowedPlans: ['Pro', 'Business'],
+          commissionNotes: '₹1,000/key agreed rate. ₹10,000 paid via UPI',
+          status: 'ACTIVE',
+          createdAt: new Date().toISOString(),
+        },
+      ],
+      stats: { totalResellers: 1, activeResellers: 1, totalAllocatedQuota: 10, totalUsedQuota: 2, totalAvailableQuota: 8 },
+    };
+  },
+
+  async createAdminReseller(adminPin: string, data: any) {
+    const res = await fetch('/api/admin/resellers', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-admin-pin': adminPin,
+      },
+      body: JSON.stringify(data),
+    });
+    const result = await res.json();
+    if (!res.ok) throw new Error(result.error || 'Failed to create reseller');
+    return result;
+  },
+
+  async updateAdminResellerQuota(adminPin: string, resellerId: string, addQuota: number, notes?: string) {
+    const res = await fetch(`/api/admin/resellers/${encodeURIComponent(resellerId)}/quota`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-admin-pin': adminPin,
+      },
+      body: JSON.stringify({ addQuota, notes }),
+    });
+    const result = await res.json();
+    if (!res.ok) throw new Error(result.error || 'Failed to update quota');
+    return result;
+  },
+
+  async toggleAdminResellerStatus(adminPin: string, resellerId: string) {
+    const res = await fetch(`/api/admin/resellers/${encodeURIComponent(resellerId)}/status`, {
+      method: 'PUT',
+      headers: { 'x-admin-pin': adminPin },
+    });
+    const result = await res.json();
+    if (!res.ok) throw new Error(result.error || 'Failed to toggle status');
+    return result;
+  },
+
+  async deleteAdminReseller(adminPin: string, resellerId: string) {
+    const res = await fetch(`/api/admin/resellers/${encodeURIComponent(resellerId)}`, {
+      method: 'DELETE',
+      headers: { 'x-admin-pin': adminPin },
+    });
+    const result = await res.json();
+    if (!res.ok) throw new Error(result.error || 'Failed to delete reseller');
+    return result;
   },
 };
 

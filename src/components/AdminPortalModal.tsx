@@ -56,8 +56,51 @@ export const AdminPortalModal: React.FC<AdminPortalModalProps> = ({
   const [loading, setLoading] = useState(false);
 
   // Active Tab inside Admin Modal
-  const [adminTab, setAdminTab] = useState<'list' | 'plans' | 'create' | 'simulator' | 'hosting' | 'pins' | 'feedback'>('hosting');
+  const [adminTab, setAdminTab] = useState<'list' | 'plans' | 'create' | 'simulator' | 'hosting' | 'pins' | 'feedback' | 'resellers'>('hosting');
   const [copiedSnippet, setCopiedSnippet] = useState(false);
+
+  // Reseller / Partner System State
+  const [loginRole, setLoginRole] = useState<'owner' | 'reseller'>(() => {
+    if (typeof window !== 'undefined') {
+      const h = window.location.hash.toLowerCase();
+      if (h.includes('reseller') || h.includes('partner')) return 'reseller';
+    }
+    return 'owner';
+  });
+  const [resellerPin, setResellerPin] = useState('');
+  const [isResellerAuthenticated, setIsResellerAuthenticated] = useState(false);
+  const [currentReseller, setCurrentReseller] = useState<any | null>(null);
+  const [resellerLicenses, setResellerLicenses] = useState<any[]>([]);
+  const [resellerLoading, setResellerLoading] = useState(false);
+  const [resellerErrorMsg, setResellerErrorMsg] = useState('');
+  const [resellerTab, setResellerTab] = useState<'keys' | 'generate' | 'topup'>('keys');
+
+  // Reseller Key Generation Form
+  const [resClientName, setResClientName] = useState('');
+  const [resClientPhone, setResClientPhone] = useState('');
+  const [resPlan, setResPlan] = useState<'Pro' | 'Business'>('Pro');
+  const [resDurationMonths, setResDurationMonths] = useState(12);
+  const [resNotes, setResNotes] = useState('');
+
+  // Owner Reseller Management State
+  const [resellers, setResellers] = useState<any[]>([]);
+  const [resellerStats, setResellerStats] = useState({
+    totalResellers: 0,
+    activeResellers: 0,
+    totalAllocatedQuota: 0,
+    totalUsedQuota: 0,
+    totalAvailableQuota: 0,
+  });
+  const [newResellerName, setNewResellerName] = useState('');
+  const [newResellerPhone, setNewResellerPhone] = useState('');
+  const [newResellerEmail, setNewResellerEmail] = useState('');
+  const [newResellerPin, setNewResellerPin] = useState('');
+  const [newResellerQuota, setNewResellerQuota] = useState(5);
+  const [newResellerNotes, setNewResellerNotes] = useState('');
+  const [topupResellerModal, setTopupResellerModal] = useState<any | null>(null);
+  const [topupAmount, setTopupAmount] = useState(5);
+  const [topupNotes, setTopupNotes] = useState('');
+  const [resellerFilter, setResellerFilter] = useState<string>('all');
 
   // Owner Notification Email & Bug Reports
   const [ownerEmail, setOwnerEmail] = useState<string>(() => {
@@ -401,11 +444,205 @@ export const AdminPortalModal: React.FC<AdminPortalModalProps> = ({
     localStorage.setItem('dexon_bug_reports_local', JSON.stringify(updated));
   };
 
+  // -------------------------------------------------------------
+  // Master Admin Reseller Management Handlers
+  // -------------------------------------------------------------
+  const loadAdminResellers = async () => {
+    try {
+      const data = await licenseService.getAdminResellers(pin || '9429');
+      if (data && data.resellers) {
+        setResellers(data.resellers);
+        if (data.stats) setResellerStats(data.stats);
+      }
+    } catch {}
+  };
+
+  const handleCreateAdminReseller = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newResellerName.trim()) {
+      alert('Reseller / Firm Name is required');
+      return;
+    }
+    try {
+      const res = await licenseService.createAdminReseller(pin || '9429', {
+        name: newResellerName.trim(),
+        phone: newResellerPhone.trim(),
+        email: newResellerEmail.trim(),
+        pin: newResellerPin.trim() || undefined,
+        allocatedQuota: Number(newResellerQuota) || 5,
+        commissionNotes: newResellerNotes.trim(),
+      });
+      alert(`🎉 Reseller Partner Created!\nName: ${res.reseller.name}\nPIN: ${res.reseller.pin}\nAllocated Quota: ${res.reseller.allocatedQuota} Keys`);
+      setNewResellerName('');
+      setNewResellerPhone('');
+      setNewResellerEmail('');
+      setNewResellerPin('');
+      setNewResellerQuota(5);
+      setNewResellerNotes('');
+      await loadAdminResellers();
+    } catch (err: any) {
+      alert('Error creating reseller: ' + err.message);
+    }
+  };
+
+  const handleTopupResellerQuota = async () => {
+    if (!topupResellerModal) return;
+    try {
+      await licenseService.updateAdminResellerQuota(
+        pin || '9429',
+        topupResellerModal.id,
+        Number(topupAmount) || 0,
+        topupNotes.trim() || undefined
+      );
+      alert(`✅ Quota added successfully! Added +${topupAmount} keys for ${topupResellerModal.name}`);
+      setTopupResellerModal(null);
+      setTopupAmount(5);
+      setTopupNotes('');
+      await loadAdminResellers();
+    } catch (err: any) {
+      alert('Error updating quota: ' + err.message);
+    }
+  };
+
+  const handleToggleResellerStatus = async (resellerId: string) => {
+    try {
+      await licenseService.toggleAdminResellerStatus(pin || '9429', resellerId);
+      await loadAdminResellers();
+    } catch (err: any) {
+      alert('Error toggling status: ' + err.message);
+    }
+  };
+
+  const handleDeleteReseller = async (resellerId: string, name: string) => {
+    if (!confirm(`Are you sure you want to remove reseller "${name}"? Existing keys created by this partner will continue working.`)) return;
+    try {
+      await licenseService.deleteAdminReseller(pin || '9429', resellerId);
+      await loadAdminResellers();
+    } catch (err: any) {
+      alert('Error removing reseller: ' + err.message);
+    }
+  };
+
+  const handleResellerWhatsAppInvite = (r: any) => {
+    const portalUrl = `${window.location.origin}/#/reseller`;
+    const text = encodeURIComponent(
+      `*🤝 Welcome to Dexon Channel Partner Network*\n\n` +
+      `Hello *${r.name}*,\n` +
+      `Aapka Dexon Authorized Reseller Account successfully activate ho gaya hai:\n\n` +
+      `🔑 *Reseller Login PIN:* \`${r.pin}\`\n` +
+      `📦 *Allocated Client Key Quota:* ${r.allocatedQuota} Keys\n` +
+      `🌐 *Partner Portal Link:* ${portalUrl}\n\n` +
+      `_Kaise use karein:_\n` +
+      `1. Upar diye link par jayein aur apna 4-digit PIN enter karein.\n` +
+      `2. Apne clients ke liye direct genuine license key generate karein.\n` +
+      `3. 1-click WhatsApp se client ko unki key forward karein!\n\n` +
+      `Support / Quota Top-up: Sahil (94298-42000) | Jagga Enterprises`
+    );
+    const phone = r.phone ? r.phone.replace(/[^0-9]/g, '') : '';
+    const url = phone ? `https://wa.me/91${phone}?text=${text}` : `https://wa.me/?text=${text}`;
+    window.open(url, '_blank');
+  };
+
+  // -------------------------------------------------------------
+  // Reseller Portal Client Handlers
+  // -------------------------------------------------------------
+  const handleResellerLogin = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!resellerPin.trim()) {
+      setResellerErrorMsg('Kripya apna 4-digit Reseller PIN enter karein');
+      return;
+    }
+    setResellerLoading(true);
+    setResellerErrorMsg('');
+    try {
+      const data = await licenseService.loginReseller(resellerPin.trim());
+      if (data && data.reseller) {
+        setCurrentReseller(data.reseller);
+        setIsResellerAuthenticated(true);
+        const licData = await licenseService.getResellerLicenses(resellerPin.trim());
+        if (licData && licData.licenses) {
+          setResellerLicenses(licData.licenses);
+        }
+      }
+    } catch (err: any) {
+      setResellerErrorMsg(err.message || 'Galat Reseller PIN');
+    } finally {
+      setResellerLoading(false);
+    }
+  };
+
+  const handleResellerGenerateKey = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!resClientName.trim()) {
+      alert('Client Name is required');
+      return;
+    }
+    if ((currentReseller?.availableQuota || 0) <= 0) {
+      alert('❌ Key Quota Exceeded! Please contact Sahil (94298-42000) to top-up keys.');
+      return;
+    }
+    setResellerLoading(true);
+    try {
+      const res = await licenseService.generateResellerKey(resellerPin.trim(), {
+        clientName: resClientName.trim(),
+        clientPhone: resClientPhone.trim(),
+        plan: resPlan,
+        durationMonths: resDurationMonths,
+        notes: resNotes.trim(),
+      });
+      alert(`🎉 Client License Key Created Successfully!\n\nKey: ${res.license.key}\nClient: ${res.license.clientName}\nPlan: ${res.license.plan}\nValidity: ${res.license.expiry}\nRemaining Quota: ${res.remainingQuota} Keys`);
+      setResClientName('');
+      setResClientPhone('');
+      setResNotes('');
+      setResellerTab('keys');
+      const updatedProfile = await licenseService.loginReseller(resellerPin.trim());
+      if (updatedProfile?.reseller) setCurrentReseller(updatedProfile.reseller);
+      const licData = await licenseService.getResellerLicenses(resellerPin.trim());
+      if (licData?.licenses) setResellerLicenses(licData.licenses);
+      if (onLicenseChanged) onLicenseChanged();
+    } catch (err: any) {
+      alert('Error generating key: ' + err.message);
+    } finally {
+      setResellerLoading(false);
+    }
+  };
+
+  const handleResellerResetDevice = async (key: string) => {
+    if (!confirm(`Reset 1-device binding for key ${key}? This allows client to activate on a new computer.`)) return;
+    try {
+      await licenseService.resetResellerDevice(resellerPin.trim(), key);
+      alert('✅ Device binding cleared! Client can now log in on their new device.');
+      const licData = await licenseService.getResellerLicenses(resellerPin.trim());
+      if (licData?.licenses) setResellerLicenses(licData.licenses);
+    } catch (err: any) {
+      alert('Error resetting device: ' + err.message);
+    }
+  };
+
+  const handleResellerClientWhatsApp = (item: any) => {
+    const text = encodeURIComponent(
+      `*⚡ Dexon Business Pro — Client Activation Key*\n\n` +
+      `Hello *${item.clientName}*,\n` +
+      `Aapka Dexon software activation key taiyar hai (Issued by: *${currentReseller?.name || 'Channel Partner'}*):\n\n` +
+      `🔑 *License Key:* \`${item.key}\`\n` +
+      `📦 *Plan:* ${item.plan}\n` +
+      `📅 *Validity:* ${item.expiry}\n` +
+      `📄 *Limit:* Unlimited Invoices\n` +
+      `🔒 *Device:* 1 Device Bound\n\n` +
+      `🌐 *Software Link:* ${window.location.origin}\n` +
+      `_Steps:_ Link open karein ➔ "Enter License Key" click karein ➔ Key paste karke unlock karein!`
+    );
+    const phone = item.clientPhone ? item.clientPhone.replace(/[^0-9]/g, '') : '';
+    const url = phone ? `https://wa.me/91${phone}?text=${text}` : `https://wa.me/?text=${text}`;
+    window.open(url, '_blank');
+  };
+
   useEffect(() => {
     if (isOpen && isAuthenticated) {
       loadLicenses();
       loadBugReports();
       loadOwnerNotificationEmail();
+      loadAdminResellers();
     }
   }, [isOpen, isAuthenticated]);
 
@@ -669,135 +906,518 @@ export const AdminPortalModal: React.FC<AdminPortalModalProps> = ({
         </div>
 
         {/* Modal Content */}
-        {!isAuthenticated ? (
+        {!isAuthenticated && !isResellerAuthenticated ? (
           <div className="flex flex-1 items-center justify-center p-6">
-            {!isRecoveryMode ? (
-              <form
-                onSubmit={handleLogin}
-                className="w-full max-w-sm rounded-2xl border border-slate-800 bg-slate-950 p-6 text-center shadow-2xl"
-              >
-                <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-500/10 text-amber-400">
-                  <KeyRound className="h-6 w-6" />
-                </div>
-                <h3 className="text-base font-bold text-white">Owner Security Login</h3>
-                <p className="mt-1 text-xs text-slate-400">
-                  Sirf aap (Sahil) is panel ko access kar sakte hain. Bank-grade encrypted verification.
-                </p>
-
-                {lockoutRemainingSecs > 0 && (
-                  <div className="mt-3 rounded-xl border border-rose-500/30 bg-rose-950/40 p-3 text-left">
-                    <div className="flex items-center gap-2 text-rose-400 font-bold text-xs">
-                      <AlertTriangle className="h-4 w-4 shrink-0" />
-                      Anti-Brute Force Lockout Active
-                    </div>
-                    <p className="mt-1 text-[11px] text-rose-300">
-                      3 galat attempts detect hue hain. System {Math.floor(lockoutRemainingSecs / 60)}m {lockoutRemainingSecs % 60}s ke liye lock hai.
-                    </p>
-                  </div>
-                )}
-
-                <div className="mt-4 relative">
-                  <input
-                    type={showPassword ? 'text' : 'password'}
-                    value={pin}
-                    onChange={(e) => setPin(e.target.value)}
-                    placeholder="Enter Owner PIN / Password"
-                    disabled={lockoutRemainingSecs > 0}
-                    className="w-full rounded-xl border border-slate-700 bg-slate-900 px-4 py-2.5 pr-10 text-center text-lg font-bold tracking-widest text-amber-400 focus:border-amber-400 focus:outline-none disabled:opacity-50"
-                    autoFocus
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    tabIndex={-1}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200"
-                  >
-                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  </button>
-                </div>
-
-                {errorMsg && (
-                  <div className="mt-2 text-xs font-semibold text-rose-400">{errorMsg}</div>
-                )}
-
+            <div className="w-full max-w-sm">
+              {/* Role Switcher */}
+              <div className="flex rounded-xl bg-slate-950 border border-slate-800 p-1 mb-4 text-xs">
                 <button
-                  type="submit"
-                  disabled={loading || lockoutRemainingSecs > 0}
-                  className="mt-4 w-full rounded-xl bg-amber-500 py-2.5 text-sm font-extrabold text-slate-950 hover:bg-amber-400 disabled:opacity-50 transition"
+                  type="button"
+                  onClick={() => setLoginRole('owner')}
+                  className={`flex-1 py-2 rounded-lg font-bold transition flex items-center justify-center gap-1.5 ${
+                    loginRole === 'owner' ? 'bg-amber-500 text-slate-950 shadow' : 'text-slate-400 hover:text-white'
+                  }`}
                 >
-                  {loading ? 'Verifying...' : lockoutRemainingSecs > 0 ? `Locked (${lockoutRemainingSecs}s)` : 'Open License Panel 🔓'}
+                  <Shield className="h-3.5 w-3.5" />
+                  Owner Login
                 </button>
+                <button
+                  type="button"
+                  onClick={() => setLoginRole('reseller')}
+                  className={`flex-1 py-2 rounded-lg font-bold transition flex items-center justify-center gap-1.5 ${
+                    loginRole === 'reseller' ? 'bg-teal-500 text-slate-950 shadow' : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  <Users className="h-3.5 w-3.5" />
+                  🤝 CA / Reseller Partner
+                </button>
+              </div>
 
-                <div className="mt-4 pt-3 border-t border-slate-800 flex flex-col gap-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsRecoveryMode(true);
-                      setErrorMsg('');
-                    }}
-                    className="text-xs text-amber-400/90 hover:text-amber-300 flex items-center justify-center gap-1.5 transition"
+              {loginRole === 'owner' ? (
+                !isRecoveryMode ? (
+                  <form
+                    onSubmit={handleLogin}
+                    className="w-full rounded-2xl border border-slate-800 bg-slate-950 p-6 text-center shadow-2xl"
                   >
-                    <Shield className="h-3.5 w-3.5" />
-                    PIN bhool gaye ya Locked hai? Emergency Recovery
-                  </button>
-                  <div className="text-[11px] text-slate-500 text-center">
-                    🔒 Confidential Owner Portal. 3 incorrect attempts trigger a 15-minute lockout.
+                    <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-500/10 text-amber-400">
+                      <KeyRound className="h-6 w-6" />
+                    </div>
+                    <h3 className="text-base font-bold text-white">Owner Security Login</h3>
+                    <p className="mt-1 text-xs text-slate-400">
+                      Sirf aap (Sahil) is panel ko access kar sakte hain. Bank-grade encrypted verification.
+                    </p>
+
+                    {lockoutRemainingSecs > 0 && (
+                      <div className="mt-3 rounded-xl border border-rose-500/30 bg-rose-950/40 p-3 text-left">
+                        <div className="flex items-center gap-2 text-rose-400 font-bold text-xs">
+                          <AlertTriangle className="h-4 w-4 shrink-0" />
+                          Anti-Brute Force Lockout Active
+                        </div>
+                        <p className="mt-1 text-[11px] text-rose-300">
+                          3 galat attempts detect hue hain. System {Math.floor(lockoutRemainingSecs / 60)}m {lockoutRemainingSecs % 60}s ke liye lock hai.
+                        </p>
+                      </div>
+                    )}
+
+                    <div className="mt-4 relative">
+                      <input
+                        type={showPassword ? 'text' : 'password'}
+                        value={pin}
+                        onChange={(e) => setPin(e.target.value)}
+                        placeholder="Enter Owner PIN / Password"
+                        disabled={lockoutRemainingSecs > 0}
+                        className="w-full rounded-xl border border-slate-700 bg-slate-900 px-4 py-2.5 pr-10 text-center text-lg font-bold tracking-widest text-amber-400 focus:border-amber-400 focus:outline-none disabled:opacity-50"
+                        autoFocus
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        tabIndex={-1}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200"
+                      >
+                        {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
+                    </div>
+
+                    {errorMsg && (
+                      <div className="mt-2 text-xs font-semibold text-rose-400">{errorMsg}</div>
+                    )}
+
+                    <button
+                      type="submit"
+                      disabled={loading || lockoutRemainingSecs > 0}
+                      className="mt-4 w-full rounded-xl bg-amber-500 py-2.5 text-sm font-extrabold text-slate-950 hover:bg-amber-400 disabled:opacity-50 transition"
+                    >
+                      {loading ? 'Verifying...' : lockoutRemainingSecs > 0 ? `Locked (${lockoutRemainingSecs}s)` : 'Open License Panel 🔓'}
+                    </button>
+
+                    <div className="mt-4 pt-3 border-t border-slate-800 flex flex-col gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsRecoveryMode(true);
+                          setErrorMsg('');
+                        }}
+                        className="text-xs text-amber-400/90 hover:text-amber-300 flex items-center justify-center gap-1.5 transition"
+                      >
+                        <Shield className="h-3.5 w-3.5" />
+                        PIN bhool gaye ya Locked hai? Emergency Recovery
+                      </button>
+                      <div className="text-[11px] text-slate-500 text-center">
+                        🔒 Confidential Owner Portal. 3 incorrect attempts trigger a 15-minute lockout.
+                      </div>
+                    </div>
+                  </form>
+                ) : (
+                  <form
+                    onSubmit={handleEmergencyRecovery}
+                    className="w-full rounded-2xl border border-amber-500/40 bg-slate-950 p-6 text-center shadow-2xl"
+                  >
+                    <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-500/20 text-amber-400">
+                      <ShieldCheck className="h-7 w-7" />
+                    </div>
+                    <h3 className="text-base font-bold text-white">Owner Master Emergency Recovery</h3>
+                    <p className="mt-1 text-xs text-slate-300">
+                      Agar PIN bhool gaye hain ya account lock ho gaya hai, to apna confidential Master Emergency Recovery Key daalein.
+                    </p>
+
+                    <div className="mt-4">
+                      <label className="block text-left text-xs font-bold text-amber-400 mb-1">
+                        Confidential Master Recovery Key
+                      </label>
+                      <input
+                        type="text"
+                        value={recoveryKeyInput}
+                        onChange={(e) => setRecoveryKeyInput(e.target.value.toUpperCase())}
+                        placeholder="DEXON-MASTER-RECOVERY-..."
+                        className="w-full rounded-xl border border-amber-500/50 bg-slate-900 px-3 py-2.5 text-center text-xs sm:text-sm font-mono font-bold tracking-wider text-amber-300 focus:border-amber-400 focus:outline-none"
+                        autoFocus
+                      />
+                      <p className="mt-1.5 text-[11px] text-slate-400 text-left">
+                        💡 Recovery key daalne se security lockout clear ho jayega aur default PIN restore ho jayega.
+                      </p>
+                    </div>
+
+                    {errorMsg && (
+                      <div className="mt-2 text-xs font-semibold text-rose-400">{errorMsg}</div>
+                    )}
+
+                    <div className="mt-5 flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsRecoveryMode(false);
+                          setErrorMsg('');
+                        }}
+                        className="flex-1 rounded-xl border border-slate-700 bg-slate-900 py-2.5 text-xs font-bold text-slate-300 hover:bg-slate-800"
+                      >
+                        Wapas PIN Login
+                      </button>
+                      <button
+                        type="submit"
+                        className="flex-1 rounded-xl bg-amber-500 py-2.5 text-xs font-extrabold text-slate-950 hover:bg-amber-400"
+                      >
+                        Restore & Unlock 🛡️
+                      </button>
+                    </div>
+                  </form>
+                )
+              ) : (
+                /* RESELLER / PARTNER LOGIN FORM */
+                <form
+                  onSubmit={handleResellerLogin}
+                  className="w-full rounded-2xl border border-teal-500/30 bg-slate-950 p-6 text-center shadow-2xl"
+                >
+                  <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-teal-500/10 text-teal-400">
+                    <Users className="h-6 w-6" />
                   </div>
-                </div>
-              </form>
-            ) : (
-              <form
-                onSubmit={handleEmergencyRecovery}
-                className="w-full max-w-md rounded-2xl border border-amber-500/40 bg-slate-950 p-6 text-center shadow-2xl"
-              >
-                <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-500/20 text-amber-400">
-                  <ShieldCheck className="h-7 w-7" />
-                </div>
-                <h3 className="text-base font-bold text-white">Owner Master Emergency Recovery</h3>
-                <p className="mt-1 text-xs text-slate-300">
-                  Agar PIN bhool gaye hain ya account lock ho gaya hai, to apna confidential Master Emergency Recovery Key daalein.
-                </p>
-
-                <div className="mt-4">
-                  <label className="block text-left text-xs font-bold text-amber-400 mb-1">
-                    Confidential Master Recovery Key
-                  </label>
-                  <input
-                    type="text"
-                    value={recoveryKeyInput}
-                    onChange={(e) => setRecoveryKeyInput(e.target.value.toUpperCase())}
-                    placeholder="DEXON-MASTER-RECOVERY-..."
-                    className="w-full rounded-xl border border-amber-500/50 bg-slate-900 px-3 py-2.5 text-center text-xs sm:text-sm font-mono font-bold tracking-wider text-amber-300 focus:border-amber-400 focus:outline-none"
-                    autoFocus
-                  />
-                  <p className="mt-1.5 text-[11px] text-slate-400 text-left">
-                    💡 Recovery key daalne se security lockout clear ho jayega aur default PIN restore ho jayega.
+                  <h3 className="text-base font-bold text-white">CA & Reseller Partner Portal</h3>
+                  <p className="mt-1 text-xs text-slate-400">
+                    Apne clients ke liye license keys generate karein aur apna quota balance manage karein.
                   </p>
-                </div>
 
-                {errorMsg && (
-                  <div className="mt-2 text-xs font-semibold text-rose-400">{errorMsg}</div>
-                )}
+                  <div className="mt-4 relative">
+                    <input
+                      type="password"
+                      value={resellerPin}
+                      onChange={(e) => setResellerPin(e.target.value)}
+                      placeholder="Enter 4-Digit Partner PIN"
+                      className="w-full rounded-xl border border-teal-500/40 bg-slate-900 px-4 py-2.5 text-center text-lg font-bold tracking-widest text-teal-300 focus:border-teal-400 focus:outline-none"
+                      autoFocus
+                    />
+                  </div>
 
-                <div className="mt-5 flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsRecoveryMode(false);
-                      setErrorMsg('');
-                    }}
-                    className="flex-1 rounded-xl border border-slate-700 bg-slate-900 py-2.5 text-xs font-bold text-slate-300 hover:bg-slate-800"
-                  >
-                    Wapas PIN Login
-                  </button>
+                  {resellerErrorMsg && (
+                    <div className="mt-2 text-xs font-semibold text-rose-400">{resellerErrorMsg}</div>
+                  )}
+
                   <button
                     type="submit"
-                    className="flex-1 rounded-xl bg-amber-500 py-2.5 text-xs font-extrabold text-slate-950 hover:bg-amber-400"
+                    disabled={resellerLoading}
+                    className="mt-4 w-full rounded-xl bg-teal-500 py-2.5 text-sm font-extrabold text-slate-950 hover:bg-teal-400 disabled:opacity-50 transition"
                   >
-                    Restore & Unlock 🛡️
+                    {resellerLoading ? 'Verifying...' : 'Open Partner Dashboard 🔓'}
+                  </button>
+
+                  <div className="mt-4 pt-3 border-t border-slate-800 text-[11px] text-slate-500 text-center">
+                    💡 Demo CA Partner PIN: <span className="font-mono font-bold text-teal-400">8899</span> (Sharma & Associates)
+                  </div>
+                </form>
+              )}
+            </div>
+          </div>
+        ) : isResellerAuthenticated ? (
+          /* RESELLER PARTNER WORKSPACE */
+          <div className="flex flex-1 flex-col overflow-hidden p-4 sm:p-6">
+            {/* Top Partner Banner */}
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-3">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-teal-500/20 text-teal-400 border border-teal-500/30">
+                  <Users className="h-6 w-6" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-base font-extrabold text-white">{currentReseller?.name}</h3>
+                    <span className="rounded-full bg-teal-500/20 px-2 py-0.5 text-[11px] font-bold text-teal-300 border border-teal-500/30">
+                      Channel Partner
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-400">
+                    Phone: {currentReseller?.phone || 'N/A'} | Quota: <strong className="text-teal-400 font-bold">{currentReseller?.availableQuota}</strong> / {currentReseller?.allocatedQuota} Keys Left
+                  </p>
+                </div>
+              </div>
+
+              {/* Partner Navigation */}
+              <div className="flex items-center gap-2">
+                <div className="flex rounded-xl border border-slate-800 bg-slate-950 p-1 text-xs">
+                  <button
+                    onClick={() => setResellerTab('keys')}
+                    className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 font-bold transition ${
+                      resellerTab === 'keys'
+                        ? 'bg-teal-600 text-white shadow-sm'
+                        : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    <KeyRound className="h-3.5 w-3.5" />
+                    My Client Keys ({resellerLicenses.length})
+                  </button>
+
+                  <button
+                    onClick={() => setResellerTab('generate')}
+                    className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 font-bold transition ${
+                      resellerTab === 'generate'
+                        ? 'bg-teal-600 text-white shadow-sm'
+                        : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    + Generate Client Key
+                  </button>
+
+                  <button
+                    onClick={() => setResellerTab('topup')}
+                    className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 font-bold transition ${
+                      resellerTab === 'topup'
+                        ? 'bg-amber-600 text-white shadow-sm'
+                        : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    <Sparkles className="h-3.5 w-3.5" />
+                    Top-up / Buy Keys
+                  </button>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsResellerAuthenticated(false);
+                    setCurrentReseller(null);
+                    setResellerPin('');
+                  }}
+                  className="rounded-xl border border-slate-700 bg-slate-800 px-3 py-1.5 text-xs font-bold text-slate-300 hover:bg-rose-950 hover:text-rose-300 transition"
+                >
+                  Logout Partner
+                </button>
+              </div>
+            </div>
+
+            {/* TAB 1: RESELLER CLIENT LICENSES */}
+            {resellerTab === 'keys' && (
+              <div className="flex flex-1 flex-col overflow-hidden pt-4">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="text-xs text-slate-400">
+                    Aapke generate kiye gaye genuine 1-device client licenses:
+                  </div>
+                  <button
+                    onClick={() => setResellerTab('generate')}
+                    className="flex items-center gap-1.5 rounded-xl bg-teal-500 px-3 py-1.5 text-xs font-black text-slate-950 hover:bg-teal-400 transition"
+                  >
+                    <Plus className="h-3.5 w-3.5" /> + New Client Key
+                  </button>
+                </div>
+
+                <div className="flex-1 overflow-auto rounded-2xl border border-slate-800 bg-slate-950">
+                  <table className="w-full text-left text-xs">
+                    <thead className="sticky top-0 bg-slate-900 border-b border-slate-800 text-slate-400">
+                      <tr>
+                        <th className="py-2.5 px-3">Client / Firm Name</th>
+                        <th className="py-2.5 px-3">License Key</th>
+                        <th className="py-2.5 px-2">Plan</th>
+                        <th className="py-2.5 px-3">Validity</th>
+                        <th className="py-2.5 px-2 text-center">Invoices</th>
+                        <th className="py-2.5 px-2 text-center">Device Lock</th>
+                        <th className="py-2.5 px-3 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-800/60">
+                      {resellerLicenses.map((item) => (
+                        <tr key={item.key} className="hover:bg-slate-900/50">
+                          <td className="py-2.5 px-3">
+                            <div className="font-bold text-white">{item.clientName}</div>
+                            {item.clientPhone && (
+                              <div className="text-[11px] text-slate-400 font-mono">{item.clientPhone}</div>
+                            )}
+                          </td>
+                          <td className="py-2.5 px-3 font-mono font-bold text-amber-300">
+                            {item.key}
+                          </td>
+                          <td className="py-2.5 px-2">
+                            <span className="rounded px-2 py-0.5 text-[10px] font-bold bg-purple-500/20 text-purple-300 border border-purple-500/30">
+                              {item.plan}
+                            </span>
+                          </td>
+                          <td className="py-2.5 px-3 text-slate-300">{item.expiry}</td>
+                          <td className="py-2.5 px-2 text-center text-slate-300 font-bold">
+                            {item.totalInvoicesGenerated || 0}
+                          </td>
+                          <td className="py-2.5 px-2 text-center">
+                            {item.boundDeviceId ? (
+                              <span className="rounded bg-blue-950/60 border border-blue-700/50 px-1.5 py-0.5 text-[10px] text-blue-300 font-semibold">
+                                📱 Locked
+                              </span>
+                            ) : (
+                              <span className="text-[10px] text-slate-500">Not locked</span>
+                            )}
+                          </td>
+                          <td className="py-2.5 px-3 text-right">
+                            <div className="flex items-center justify-end gap-1.5">
+                              <button
+                                onClick={() => handleResellerClientWhatsApp(item)}
+                                className="flex items-center gap-1 rounded bg-emerald-950/40 border border-emerald-700/50 px-2 py-1 text-[11px] font-bold text-emerald-300 hover:bg-emerald-900/60"
+                                title="Send key details to client on WhatsApp"
+                              >
+                                <Share2 className="h-3 w-3" /> WhatsApp
+                              </button>
+                              {item.boundDeviceId && (
+                                <button
+                                  onClick={() => handleResellerResetDevice(item.key)}
+                                  className="flex items-center gap-1 rounded bg-blue-950/40 border border-blue-700/50 px-2 py-1 text-[10px] font-semibold text-blue-300 hover:bg-blue-900/60"
+                                  title="Clear device binding if client changed computer"
+                                >
+                                  <RotateCcw className="h-3 w-3" /> Reset Dev
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                      {resellerLicenses.length === 0 && (
+                        <tr>
+                          <td colSpan={7} className="py-8 text-center text-slate-400">
+                            Aapne abhi tak koi client key generate nahi ki hai. Upar diye "+ Generate Client Key" par click karein.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {/* TAB 2: RESELLER GENERATE KEY */}
+            {resellerTab === 'generate' && (
+              <form onSubmit={handleResellerGenerateKey} className="flex-1 overflow-y-auto pt-4 space-y-4 max-w-xl mx-auto w-full">
+                <div className="rounded-2xl border border-teal-500/40 bg-slate-950 p-6 space-y-4">
+                  <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+                    <div>
+                      <h4 className="font-black text-white text-base flex items-center gap-2">
+                        <Plus className="h-4 w-4 text-teal-400" /> Issue New License Key for Client
+                      </h4>
+                      <p className="text-xs text-slate-400">Ye key genuine 1-device lock ke sath generate hogi</p>
+                    </div>
+                    <div className="rounded-xl bg-teal-500/10 border border-teal-500/30 px-3 py-1 text-center">
+                      <div className="text-[10px] text-teal-300 uppercase font-bold">Quota Balance</div>
+                      <div className="text-sm font-black text-teal-400">{currentReseller?.availableQuota} Keys Left</div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-bold text-slate-300 block mb-1">
+                      Client / Firm Name *
+                    </label>
+                    <input
+                      type="text"
+                      value={resClientName}
+                      onChange={(e) => setResClientName(e.target.value)}
+                      placeholder="e.g. Verma Electricals & Solar"
+                      className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white focus:border-teal-400 focus:outline-none"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-bold text-slate-300 block mb-1">
+                      Client WhatsApp Mobile No.
+                    </label>
+                    <input
+                      type="text"
+                      value={resClientPhone}
+                      onChange={(e) => setResClientPhone(e.target.value)}
+                      placeholder="e.g. 9876543210"
+                      className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white focus:border-teal-400 focus:outline-none"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-xs font-bold text-slate-300 block mb-1">
+                        Select Plan
+                      </label>
+                      <select
+                        value={resPlan}
+                        onChange={(e) => setResPlan(e.target.value as any)}
+                        className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-xs font-bold text-white focus:border-teal-400 focus:outline-none"
+                      >
+                        <option value="Pro">⭐ Pro Plan (Single Firm)</option>
+                        <option value="Business">🚀 Business Plan (Multi-Firm & CA)</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="text-xs font-bold text-slate-300 block mb-1">
+                        Validity Duration
+                      </label>
+                      <select
+                        value={resDurationMonths}
+                        onChange={(e) => setResDurationMonths(Number(e.target.value))}
+                        className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-xs font-bold text-white focus:border-teal-400 focus:outline-none"
+                      >
+                        <option value={12}>1 Year (12 Months)</option>
+                        <option value={6}>6 Months</option>
+                        <option value={24}>2 Years (24 Months)</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-bold text-slate-300 block mb-1">
+                      Internal Notes (Optional)
+                    </label>
+                    <input
+                      type="text"
+                      value={resNotes}
+                      onChange={(e) => setResNotes(e.target.value)}
+                      placeholder="e.g. Paid in cash ₹2,000"
+                      className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-xs text-white focus:border-teal-400 focus:outline-none"
+                    />
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={resellerLoading || (currentReseller?.availableQuota || 0) <= 0}
+                    className="w-full rounded-xl bg-teal-500 py-3 text-sm font-black text-slate-950 hover:bg-teal-400 disabled:opacity-50 transition shadow-lg"
+                  >
+                    {resellerLoading ? 'Generating Key...' : '⚡ Generate License Key & Deduct 1 Quota'}
                   </button>
                 </div>
               </form>
+            )}
+
+            {/* TAB 3: RESELLER TOP-UP / BUY KEYS */}
+            {resellerTab === 'topup' && (
+              <div className="flex-1 overflow-y-auto pt-4 max-w-xl mx-auto w-full space-y-4">
+                <div className="rounded-2xl border border-amber-500/40 bg-slate-950 p-6 space-y-4 text-center">
+                  <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-500/20 text-amber-400">
+                    <Sparkles className="h-7 w-7" />
+                  </div>
+                  <h3 className="text-base font-black text-white">Purchase More License Quota</h3>
+                  <p className="text-xs text-slate-300 leading-relaxed">
+                    Apne clients ke liye bulk license keys khareedne ke liye Dexon Master Owner (Sahil) se direct WhatsApp ya call par contact karein. Instant quota top-up milta hai.
+                  </p>
+
+                  <div className="rounded-xl border border-slate-800 bg-slate-900 p-4 text-left space-y-2">
+                    <div className="flex justify-between items-center text-xs">
+                      <span className="text-slate-400">Partner Wholesale Rate:</span>
+                      <strong className="text-emerald-400">₹999 / Key (Pro) | ₹1,499 / Key (Business)</strong>
+                    </div>
+                    <div className="flex justify-between items-center text-xs">
+                      <span className="text-slate-400">Minimum Top-up:</span>
+                      <strong className="text-white">5 Keys</strong>
+                    </div>
+                    <div className="flex justify-between items-center text-xs">
+                      <span className="text-slate-400">Payment Mode:</span>
+                      <strong className="text-amber-300">UPI / QR / Bank Transfer / Razorpay</strong>
+                    </div>
+                    <div className="flex justify-between items-center text-xs">
+                      <span className="text-slate-400">Owner Contact:</span>
+                      <strong className="text-white font-mono">94298-42000 (Sahil Jagga)</strong>
+                    </div>
+                  </div>
+
+                  <a
+                    href={`https://wa.me/919429842000?text=${encodeURIComponent(
+                      `Hello Sahil, I want to top-up license key quota for my Reseller account: *${currentReseller?.name}* (Phone: ${currentReseller?.phone}). Please share payment details / QR code.`
+                    )}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center justify-center gap-2 w-full rounded-xl bg-emerald-500 py-3 text-sm font-extrabold text-slate-950 hover:bg-emerald-400 transition shadow-lg"
+                  >
+                    <Send className="h-4 w-4" />
+                    Top-up via WhatsApp (Instant Approval)
+                  </a>
+                </div>
+              </div>
             )}
           </div>
         ) : (
@@ -890,6 +1510,21 @@ export const AdminPortalModal: React.FC<AdminPortalModalProps> = ({
                 >
                   <MessageSquare className="h-3.5 w-3.5 text-blue-300" />
                   📩 Client Bug Reports ({clientBugReports.length})
+                </button>
+
+                <button
+                  onClick={() => {
+                    setAdminTab('resellers');
+                    loadAdminResellers();
+                  }}
+                  className={`flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 font-bold transition ${
+                    adminTab === 'resellers'
+                      ? 'bg-teal-600 text-white shadow-sm'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  <Users className="h-3.5 w-3.5 text-teal-300" />
+                  🤝 Resellers & Partners ({resellers.length})
                 </button>
               </div>
 
@@ -1228,6 +1863,23 @@ export const AdminPortalModal: React.FC<AdminPortalModalProps> = ({
                       <RotateCcw className="h-3.5 w-3.5 text-amber-400" />
                       <span>🔑 Restore Past Key</span>
                     </button>
+
+                    {/* Reseller Filter Dropdown */}
+                    {resellers.length > 0 && (
+                      <select
+                        value={resellerFilter}
+                        onChange={(e) => setResellerFilter(e.target.value)}
+                        className="rounded-lg border border-teal-500/50 bg-slate-950 px-2.5 py-1 text-xs font-bold text-teal-300 focus:outline-none"
+                      >
+                        <option value="all">All Channels (Direct & Partners)</option>
+                        <option value="direct">Direct by Owner Only</option>
+                        {resellers.map((r) => (
+                          <option key={r.id} value={r.id}>
+                            Partner: {r.name}
+                          </option>
+                        ))}
+                      </select>
+                    )}
                   </div>
                 </div>
 
@@ -1257,6 +1909,11 @@ export const AdminPortalModal: React.FC<AdminPortalModalProps> = ({
                           return true;
                         })
                         .filter((l) => {
+                          if (resellerFilter === 'direct') return !l.resellerId;
+                          if (resellerFilter !== 'all') return l.resellerId === resellerFilter;
+                          return true;
+                        })
+                        .filter((l) => {
                           if (!searchTerm) return true;
                           const s = searchTerm.toLowerCase();
                           return (
@@ -1268,7 +1925,14 @@ export const AdminPortalModal: React.FC<AdminPortalModalProps> = ({
                         .map((item) => (
                           <tr key={item.key} className="hover:bg-slate-900/50">
                             <td className="py-2.5 px-3">
-                              <div className="font-bold text-white">{item.clientName}</div>
+                              <div className="font-bold text-white flex items-center gap-1.5 flex-wrap">
+                                <span>{item.clientName}</span>
+                                {item.resellerName && (
+                                  <span className="inline-flex items-center gap-0.5 rounded bg-teal-950/60 border border-teal-700/50 px-1.5 py-0.5 text-[9px] font-bold text-teal-300">
+                                    🤝 {item.resellerName}
+                                  </span>
+                                )}
+                              </div>
                               {item.clientPhone && (
                                 <div className="text-[10px] text-slate-400">{item.clientPhone}</div>
                               )}
@@ -2487,6 +3151,389 @@ export const AdminPortalModal: React.FC<AdminPortalModalProps> = ({
                 </div>
               </div>
             )}
+
+            {/* TAB 8: RESELLERS & PARTNERS MANAGEMENT (OWNER CONTROL) */}
+            {adminTab === 'resellers' && (
+              <div className="flex flex-1 flex-col overflow-y-auto pt-4 space-y-4">
+                {/* Header & Stats Banner */}
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <h3 className="text-base font-black text-white flex items-center gap-2">
+                      <Users className="h-5 w-5 text-teal-400" />
+                      Authorized Resellers & CA Partner Network
+                    </h3>
+                    <p className="text-xs text-slate-400">
+                      CAs, Accountants aur channel partners ko key quotas assign karein aur unke through generate hue keys ko track karein.
+                    </p>
+                  </div>
+                </div>
+
+                {/* 4 Stat Cards */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  <div className="rounded-xl border border-teal-500/30 bg-teal-950/20 p-3">
+                    <div className="text-[10px] text-teal-300 font-bold uppercase tracking-wider">Total Partners</div>
+                    <div className="text-xl font-black text-white">{resellerStats.totalResellers}</div>
+                    <div className="text-[10px] text-slate-400 mt-0.5">{resellerStats.activeResellers} Active</div>
+                  </div>
+
+                  <div className="rounded-xl border border-slate-800 bg-slate-950 p-3">
+                    <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Allocated Quota</div>
+                    <div className="text-xl font-black text-amber-400">{resellerStats.totalAllocatedQuota} <span className="text-xs font-normal text-slate-400">Keys</span></div>
+                    <div className="text-[10px] text-slate-400 mt-0.5">Assigned to partners</div>
+                  </div>
+
+                  <div className="rounded-xl border border-purple-500/30 bg-purple-950/20 p-3">
+                    <div className="text-[10px] text-purple-300 font-bold uppercase tracking-wider">Keys Sold by Partners</div>
+                    <div className="text-xl font-black text-purple-300">{resellerStats.totalUsedQuota} <span className="text-xs font-normal text-slate-400">Keys</span></div>
+                    <div className="text-[10px] text-slate-400 mt-0.5">Activated on clients</div>
+                  </div>
+
+                  <div className="rounded-xl border border-emerald-500/30 bg-emerald-950/20 p-3">
+                    <div className="text-[10px] text-emerald-300 font-bold uppercase tracking-wider">Available Balance</div>
+                    <div className="text-xl font-black text-emerald-400">{resellerStats.totalAvailableQuota} <span className="text-xs font-normal text-slate-400">Keys</span></div>
+                    <div className="text-[10px] text-slate-400 mt-0.5">Remaining in partner quotas</div>
+                  </div>
+                </div>
+
+                {/* Register New Reseller Form */}
+                <form onSubmit={handleCreateAdminReseller} className="rounded-2xl border border-teal-500/30 bg-slate-950 p-5 space-y-3">
+                  <div className="flex items-center justify-between border-b border-slate-800 pb-2.5">
+                    <h4 className="text-sm font-bold text-teal-300 flex items-center gap-2">
+                      <Plus className="h-4 w-4" /> Register New CA / Channel Reseller
+                    </h4>
+                    <span className="text-[11px] text-slate-400">Partner ko unka login link aur PIN automatic WhatsApp par forward kar sakte hain</span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div>
+                      <label className="text-[11px] font-bold text-slate-300 block mb-1">
+                        Reseller / CA Firm Name *
+                      </label>
+                      <input
+                        type="text"
+                        value={newResellerName}
+                        onChange={(e) => setNewResellerName(e.target.value)}
+                        placeholder="e.g. Goyal & Associates CA"
+                        className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs text-white focus:border-teal-400 focus:outline-none"
+                        required
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-[11px] font-bold text-slate-300 block mb-1">
+                        WhatsApp Mobile No.
+                      </label>
+                      <input
+                        type="text"
+                        value={newResellerPhone}
+                        onChange={(e) => setNewResellerPhone(e.target.value)}
+                        placeholder="e.g. 9812345678"
+                        className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs text-white focus:border-teal-400 focus:outline-none"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-[11px] font-bold text-slate-300 block mb-1">
+                        Email Address (Optional)
+                      </label>
+                      <input
+                        type="email"
+                        value={newResellerEmail}
+                        onChange={(e) => setNewResellerEmail(e.target.value)}
+                        placeholder="e.g. ca.goyal@gmail.com"
+                        className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs text-white focus:border-teal-400 focus:outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div>
+                      <label className="text-[11px] font-bold text-slate-300 block mb-1">
+                        Initial Key Quota (Keys)
+                      </label>
+                      <input
+                        type="number"
+                        min="1"
+                        max="500"
+                        value={newResellerQuota}
+                        onChange={(e) => setNewResellerQuota(Number(e.target.value))}
+                        className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs text-white focus:border-teal-400 focus:outline-none font-bold"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-[11px] font-bold text-slate-300 block mb-1">
+                        Partner 4-Digit Login PIN
+                      </label>
+                      <input
+                        type="text"
+                        maxLength={8}
+                        value={newResellerPin}
+                        onChange={(e) => setNewResellerPin(e.target.value)}
+                        placeholder="Leave blank for auto PIN"
+                        className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs text-teal-300 font-mono font-bold focus:border-teal-400 focus:outline-none"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-[11px] font-bold text-slate-300 block mb-1">
+                        Payment & Pricing Notes
+                      </label>
+                      <input
+                        type="text"
+                        value={newResellerNotes}
+                        onChange={(e) => setNewResellerNotes(e.target.value)}
+                        placeholder="e.g. ₹5,000 paid via UPI for 5 keys"
+                        className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs text-white focus:border-teal-400 focus:outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex justify-end pt-1">
+                    <button
+                      type="submit"
+                      className="rounded-xl bg-teal-500 px-4 py-2 text-xs font-black text-slate-950 hover:bg-teal-400 transition shadow-md"
+                    >
+                      + Create Partner & Generate Credentials
+                    </button>
+                  </div>
+                </form>
+
+                {/* Resellers Table */}
+                <div className="rounded-2xl border border-slate-800 bg-slate-950 overflow-hidden">
+                  <div className="px-4 py-3 border-b border-slate-800 bg-slate-900/50 flex items-center justify-between">
+                    <h4 className="text-xs font-bold text-white uppercase tracking-wider">
+                      Active Partners & Key Quotas ({resellers.length})
+                    </h4>
+                    <span className="text-[11px] text-slate-400">
+                      Partner Portal Link: <code className="text-teal-400 font-mono">{window.location.origin}/#/reseller</code>
+                    </span>
+                  </div>
+
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs">
+                      <thead className="bg-slate-900/80 text-slate-400 border-b border-slate-800">
+                        <tr>
+                          <th className="py-2.5 px-3">Partner Name</th>
+                          <th className="py-2.5 px-3">Contact</th>
+                          <th className="py-2.5 px-3">Login PIN</th>
+                          <th className="py-2.5 px-3 text-center">Quota Progress</th>
+                          <th className="py-2.5 px-2 text-center">Status</th>
+                          <th className="py-2.5 px-3 text-right">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-800/60">
+                        {resellers.map((r) => {
+                          const used = r.usedQuota || 0;
+                          const total = r.allocatedQuota || 0;
+                          const available = Math.max(0, total - used);
+                          const pct = total > 0 ? Math.round((used / total) * 100) : 0;
+
+                          return (
+                            <tr key={r.id} className="hover:bg-slate-900/50">
+                              <td className="py-2.5 px-3">
+                                <div className="font-bold text-white">{r.name}</div>
+                                {r.commissionNotes && (
+                                  <div className="text-[10px] text-slate-500">{r.commissionNotes}</div>
+                                )}
+                              </td>
+
+                              <td className="py-2.5 px-3">
+                                {r.phone && <div className="text-amber-300 font-mono">{r.phone}</div>}
+                                {r.email && <div className="text-slate-400">{r.email}</div>}
+                              </td>
+
+                              <td className="py-2.5 px-3">
+                                <span className="font-mono font-black text-teal-400 bg-teal-950/60 border border-teal-800/50 px-2 py-0.5 rounded">
+                                  {r.pin}
+                                </span>
+                              </td>
+
+                              <td className="py-2.5 px-3 text-center">
+                                <div className="flex items-center justify-center gap-2">
+                                  <div className="w-20 bg-slate-800 rounded-full h-1.5 overflow-hidden">
+                                    <div
+                                      className={`h-full ${pct >= 90 ? 'bg-rose-500' : pct >= 60 ? 'bg-amber-500' : 'bg-teal-500'}`}
+                                      style={{ width: `${Math.min(100, pct)}%` }}
+                                    />
+                                  </div>
+                                  <span className="font-bold text-white text-[11px]">
+                                    {used} / {total}
+                                  </span>
+                                </div>
+                                <div className="text-[10px] text-slate-400 mt-0.5 font-medium">
+                                  <strong className="text-emerald-400">{available}</strong> left
+                                </div>
+                              </td>
+
+                              <td className="py-2.5 px-2 text-center">
+                                <span
+                                  className={`rounded-full px-2 py-0.5 text-[10px] font-black border ${
+                                    r.status === 'ACTIVE'
+                                      ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
+                                      : 'bg-rose-500/20 text-rose-300 border-rose-500/30'
+                                  }`}
+                                >
+                                  {r.status}
+                                </span>
+                              </td>
+
+                              <td className="py-2.5 px-3 text-right">
+                                <div className="flex items-center justify-end gap-1.5">
+                                  {/* Top-up Quota */}
+                                  <button
+                                    onClick={() => {
+                                      setTopupResellerModal(r);
+                                      setTopupAmount(5);
+                                      setTopupNotes('');
+                                    }}
+                                    className="flex items-center gap-1 rounded bg-teal-950/60 border border-teal-700/50 px-2 py-1 text-[11px] font-bold text-teal-300 hover:bg-teal-900/60"
+                                    title="Add key quota for this partner"
+                                  >
+                                    <Plus className="h-3 w-3" /> Top-up
+                                  </button>
+
+                                  {/* WhatsApp Credentials */}
+                                  <button
+                                    onClick={() => handleResellerWhatsAppInvite(r)}
+                                    className="flex items-center gap-1 rounded bg-emerald-950/40 border border-emerald-700/50 px-2 py-1 text-[11px] font-bold text-emerald-300 hover:bg-emerald-900/60"
+                                    title="Send portal link and PIN on WhatsApp"
+                                  >
+                                    <Share2 className="h-3 w-3" /> WA
+                                  </button>
+
+                                  {/* Filter Keys */}
+                                  <button
+                                    onClick={() => {
+                                      setResellerFilter(r.id);
+                                      setAdminTab('list');
+                                    }}
+                                    className="flex items-center gap-1 rounded bg-purple-950/40 border border-purple-700/50 px-2 py-1 text-[11px] font-bold text-purple-300 hover:bg-purple-900/60"
+                                    title="View licenses created by this partner"
+                                  >
+                                    Keys
+                                  </button>
+
+                                  {/* Toggle Status */}
+                                  <button
+                                    onClick={() => handleToggleResellerStatus(r.id)}
+                                    className="rounded p-1 text-slate-400 hover:text-amber-300"
+                                    title={r.status === 'ACTIVE' ? 'Suspend partner' : 'Activate partner'}
+                                  >
+                                    <RotateCcw className="h-3.5 w-3.5" />
+                                  </button>
+
+                                  {/* Delete */}
+                                  <button
+                                    onClick={() => handleDeleteReseller(r.id, r.name)}
+                                    className="rounded p-1 text-slate-500 hover:text-rose-400"
+                                    title="Delete partner"
+                                  >
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                        {resellers.length === 0 && (
+                          <tr>
+                            <td colSpan={6} className="py-8 text-center text-slate-400">
+                              Koi reseller registered nahi hai. Upar diye form se apna pehla CA / Channel Partner add karein.
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Modal: Top-up Reseller Quota */}
+        {topupResellerModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm animate-fadeIn">
+            <div className="w-full max-w-sm rounded-2xl border border-teal-500/40 bg-slate-900 p-6 text-slate-100 shadow-2xl space-y-4">
+              <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+                <div className="flex items-center gap-2">
+                  <div className="rounded-xl bg-teal-500/20 p-2 text-teal-400">
+                    <Plus className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <h4 className="font-black text-white text-base">Top-up Key Quota</h4>
+                    <p className="text-xs text-slate-400">{topupResellerModal.name}</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setTopupResellerModal(null)}
+                  className="rounded-lg p-1 text-slate-400 hover:text-white"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-300 block mb-1">
+                  How many keys to add?
+                </label>
+                <div className="flex gap-2 mb-2">
+                  {[5, 10, 20, 50].map((num) => (
+                    <button
+                      key={num}
+                      type="button"
+                      onClick={() => setTopupAmount(num)}
+                      className={`flex-1 py-1.5 rounded-lg text-xs font-black border transition ${
+                        topupAmount === num
+                          ? 'bg-teal-500 text-slate-950 border-teal-400'
+                          : 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700'
+                      }`}
+                    >
+                      +{num}
+                    </button>
+                  ))}
+                </div>
+                <input
+                  type="number"
+                  min="1"
+                  max="1000"
+                  value={topupAmount}
+                  onChange={(e) => setTopupAmount(Number(e.target.value))}
+                  className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-teal-300 font-bold focus:border-teal-400 focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-300 block mb-1">
+                  Payment / Reference Notes
+                </label>
+                <input
+                  type="text"
+                  value={topupNotes}
+                  onChange={(e) => setTopupNotes(e.target.value)}
+                  placeholder="e.g. ₹5,000 received via PhonePe UPI"
+                  className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-xs text-white focus:border-teal-400 focus:outline-none"
+                />
+              </div>
+
+              <div className="flex gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setTopupResellerModal(null)}
+                  className="flex-1 rounded-xl border border-slate-700 bg-slate-800 py-2.5 text-xs font-bold text-slate-300 hover:bg-slate-700"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleTopupResellerQuota}
+                  className="flex-1 rounded-xl bg-teal-500 py-2.5 text-xs font-black text-slate-950 hover:bg-teal-400"
+                >
+                  Confirm Top-up ⚡
+                </button>
+              </div>
+            </div>
           </div>
         )}
 
